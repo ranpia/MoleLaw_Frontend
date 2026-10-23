@@ -1,312 +1,51 @@
-import styled from "@emotion/styled";
-import { MainColor, Point, PointHighlight, Text } from "../../style/colors";
-import { useEffect, useRef, useState } from "react";
-import ProfilePanel from "../Feature/ProfilePanel";
+import { useEffect, useState } from "react";
+import { useAuthStore, useDataStore, useQuestionStore, useToastStore } from "../../store/storeIndex";
 import SettingPanel from "../Feature/SettingSystem/SettingPanel";
-import { useDataStore } from "../../store/storeIndex";
 
-const Wrapper = styled.div<{ hold: boolean }>`
-  width: ${({ hold }) => (hold ? "400px" : "110px")};
-  height: 100vh;
-  background-color: ${MainColor};
-  padding: 40px;
-  padding-bottom: 20px;
-  box-sizing: border-box;
-  color: ${Text};
-  user-select: none;
-  display: grid;
-  grid-template-rows: auto auto 1fr auto;
-  justify-items: start;
-
-  transition: 0.5s ease-in-out;
-
-  ${({ hold }) =>
-    !hold &&
-    `
-        &:hover {
-            width: 400px;
-        }
-    `}
-`;
-
-const MenuLock = styled.div`
-  display: flex;
-  justify-content: flex-start;
-  align-items: center;
-  padding: 0;
-  margin: 0;
-`;
-
-const Chats = styled.div`
-  padding: 20px 30px 20px 0;
-  box-sizing: border-box;
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-
-  min-width: 0;
-  overflow: auto;
-  width: 350px;
-
-  /* 스크롤바 wrapper 역할 */
-  position: relative;
-  transition: background-color 0.5s ease-in-out, opacity 0.5s ease-in-out;
-  
-  /* Chrome, Safari, Edge 기반 브라우저 전용 */
-  &::-webkit-scrollbar {
-    display: none;
-  }
-
-  &::-webkit-scrollbar-thumb {
-    display:none;
-  }
-`;
-
-const MenueList = styled.div`
-  display: grid;
-  grid-template-rows: 1fr 1fr 1fr;
-  height: 200px;
-  align-items: center;
-  justify-items: left;
-  gap: 10px;
-`;
-
-const Menu = styled.div`
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  justify-content: center;
-  text-align: left;
-  white-space: nowrap;
-  color: ${Point};
-  font-family: "Chiron Sung HK";
-  font-size: 24px;
-  font-weight: bold;
-  gap: 20px;
-  padding: 10px;
-  margin-left: -10px;
-  border-radius: 30px;
-
-  transition: 0.2s ease-in-out 0.1s;
-  &:hover {
-    background-color: ${PointHighlight};
-    transition: 0.2s ease-in-out;
-  }
-`;
-
-const ChatTitle = styled.div<{ isExpanded: boolean }>`
-  display: flex;
-  height: 20px;
-  font-size: 16px;
-  align-items: center;
-  justify-content: flex-start;
-  color: white;
-  font-family: "Chiron Sung HK";
-  opacity: ${({ isExpanded }) => (isExpanded ? 1 : 0)};
-
-  margin-top: 50px;
-`;
-
-const Icon = styled.img`
-  width: 32px;
-  height: 32px;
-  padding: 0;
-  margin: 0%;
-`;
-
-const ChatList = styled.div<{ show: boolean }>`
-  width: 100%;
-  height: fit-content;
-  min-width: 0;
-  padding: 5px;
-  border-radius: 10px;
-  box-sizing: border-box;
-  display: grid;
-  grid-template-columns: 1fr auto;
-
-  color: white;
-  font-size: 14px;
-  font-family: Pretendard;
-  opacity: ${({ show }) => (show ? "1" : "0")};
-  gap: 10px;
-
-  text-align: left;
-  user-select: none;
-  cursor: pointer;
-
-  &:hover {
-    background-color: ${PointHighlight};
-  }
-`;
-const Chat = styled.div`
-  min-width: 0;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-`;
-const Del = styled.div`
-  width: 15px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-`;
-const DelButton = styled.button`
-  width: 15px;
-  height: 10px;
-  background-color: transparent;
-  border: none;
-  padding: 0;
-  margin: 0;
-  color: white;
-
-  font-size: 12px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-`;
-
-const SideBar: React.FC = () => {
-  const WidthRef = useRef<HTMLDivElement>(null);
-  const [hold, setHold] = useState(false);
-  const [isExpanded, setIsExpanded] = useState(false);
-  const [settingRenderer, setSettingRenderer] = useState(false);
-
-  const [hoverRoomID, setHoveredRoomID] = useState<number | null>(null);
-
-  const [profileClick, setProfileClick] = useState(false);
-  const { chatRooms, getChatRoomMessage, deleteChatroom } = useDataStore();
-
-  const holdHandler = () => {
-    if (!hold) {
-      setHold(true);
-    } else {
-      setHold(false);
-    }
+export default function SideBar() {
+  const [expanded, setExpanded] = useState(false);
+  const [settings, setSettings] = useState(false);
+  const [deleting, setDeleting] = useState<number | null>(null);
+  const { chatRooms, getChatRoom, getChatRoomMessage, deleteChatroom, newChat, selectedChatRoomID, listLoading, roomLoading, hasMore, error } = useDataStore();
+  const { loading, clearError } = useQuestionStore();
+  const { user, logout, isLoading } = useAuthStore();
+  const busy = loading || roomLoading || deleting !== null;
+  useEffect(() => { void getChatRoom(); }, [getChatRoom]);
+  const start = () => { if (busy) return; newChat(); clearError(); setExpanded(false); };
+  const remove = async (id: number) => {
+    if (busy) return;
+    setDeleting(id);
+    try { if (await deleteChatroom(id)) clearError(); } finally { setDeleting(null); }
   };
-
-  const ChatRoomHandler = (ID: number) => {
-    getChatRoomMessage(ID);
+  const signout = async () => {
+    if (!await logout()) useToastStore.getState().showToast(useAuthStore.getState().error || "로그아웃하지 못했습니다.");
   };
-
-  const ChatRoomDeleteHandler = (event: React.MouseEvent) => {
-    event.stopPropagation();
-    if (hoverRoomID != null) {
-      deleteChatroom(hoverRoomID);
-    } else {
-      return false;
-    }
-  };
-
-  useEffect(() => {
-    const el = WidthRef.current;
-    if (!el) return;
-
-    const observer = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        const width = entry.contentRect.width;
-        setIsExpanded(width >= 300);
-      }
-    });
-
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [isExpanded]);
-
-  useEffect(() => {
-    if (!isExpanded) setProfileClick(false);
-  }, [isExpanded]);
-
-  const SettingHandler = () => {
-    setSettingRenderer((prev) => !prev);
-  };
-
   return (
-    <Wrapper ref={WidthRef} hold={hold}>
-      <MenuLock>
-        <button
-          onClick={holdHandler}
-          style={{
-            background: "none",
-            border: "none",
-            cursor: "pointer",
-            padding: "0",
-          }}
-        >
-          <Icon src="/MenuHold.svg" alt="Toggle Sidebar" />
-        </button>
-      </MenuLock>
-      <ChatTitle isExpanded={isExpanded}>채팅</ChatTitle>
-      <Chats>
-        {Array.isArray(chatRooms) &&
-          chatRooms.map((room, index) => (
-            <ChatList
-              show={isExpanded}
-              key={room.id || index}
-              onClick={() => ChatRoomHandler(room.id)}
-              onMouseEnter={() => setHoveredRoomID(room.id)}
-              onMouseLeave={() => setHoveredRoomID(null)}
-            >
-              <Chat>{room.title}</Chat>
-              <Del>
-                {hoverRoomID === room.id ? (
-                  <DelButton onClick={(e) => ChatRoomDeleteHandler(e)}>
-                    X
-                  </DelButton>
-                ) : (
-                  ""
-                )}
-              </Del>
-            </ChatList>
-          ))}
-      </Chats>
-      <MenueList>
-        <Menu onClick={() => window.open("https://www.law.go.kr/")}>
-          <Icon src="/Book.svg" />
-          <span
-            style={{
-              opacity: isExpanded ? 1 : 0,
-              maxWidth: isExpanded ? "500px" : "0px",
-              overflow: "hidden",
-              whiteSpace: "nowrap",
-            }}
-          >
-            대한민국 법전
-          </span>
-        </Menu>
-        <Menu onClick={SettingHandler}>
-          <Icon src="/Setting.svg" />
-          <span
-            style={{
-              opacity: isExpanded ? 1 : 0,
-              maxWidth: isExpanded ? "500px" : "0px",
-              overflow: "hidden",
-              whiteSpace: "nowrap",
-            }}
-          >
-            Setting
-          </span>
-        </Menu>
-        <Menu
-          style={{ position: "relative" }}
-          onClick={() => setProfileClick((prev) => !prev)}
-        >
-          <Icon src="/Profile.svg" />
-          <span
-            style={{
-              opacity: isExpanded ? 1 : 0,
-              maxWidth: isExpanded ? "500px" : "0px",
-              overflow: "hidden",
-              whiteSpace: "nowrap",
-            }}
-          >
-            Profile
-          </span>
-          {isExpanded && <ProfilePanel show={profileClick} />}
-        </Menu>
-      </MenueList>
-      <SettingPanel show={settingRenderer} showHandle={SettingHandler} />
-    </Wrapper>
+    <>
+      <button className="mobile-menu" onClick={() => setExpanded(!expanded)} aria-expanded={expanded} aria-controls="sidebar">{expanded ? "메뉴 닫기" : "메뉴"}</button>
+      <aside id="sidebar" className={`sidebar ${expanded ? "is-open" : ""}`}>
+        <a className="sidebar-brand" href="/Main">MoleLaw</a>
+        <button className="new-chat" disabled={busy} onClick={start}>＋ 새 상담</button>
+        <h2>상담 기록</h2>
+        <nav className="room-list" aria-label="상담 기록">
+          {!chatRooms.length && !listLoading && <p className="muted">아직 상담 기록이 없습니다.</p>}
+          {chatRooms.map((room) => <div key={room.id} className={`room-row ${selectedChatRoomID === room.id ? "selected" : ""}`}>
+            <button className="room-select" disabled={busy} title={room.preview || room.title} aria-current={selectedChatRoomID === room.id ? "true" : undefined}
+              onClick={async () => { clearError(); if (await getChatRoomMessage(room.id)) setExpanded(false); }}>{room.title}</button>
+            <button className="room-delete" disabled={busy} aria-label={`${room.title} 삭제`} onClick={() => void remove(room.id)}>×</button>
+          </div>)}
+          {listLoading && <p role="status">기록을 불러오는 중…</p>}
+          {hasMore && <button disabled={listLoading || busy} onClick={() => void getChatRoom(true)}>이전 상담 더 보기</button>}
+          {error && <div role="alert" className="sidebar-error">{error}<button disabled={listLoading || busy} onClick={() => void getChatRoom()}>목록 다시 불러오기</button></div>}
+        </nav>
+        <div className="sidebar-bottom">
+          <a href="https://www.law.go.kr/" target="_blank" rel="noopener noreferrer">국가법령정보센터 ↗</a>
+          <button disabled={busy} onClick={() => setSettings(true)}>계정 설정</button>
+          <span className="profile-name">{user?.nickname}</span><small>{user?.email}</small>
+          <button disabled={isLoading || busy} onClick={() => void signout()}>로그아웃</button>
+        </div>
+      </aside>
+      {settings && <SettingPanel show={settings} showHandle={() => setSettings(false)} />}
+    </>
   );
-};
-
-export default SideBar;
+}

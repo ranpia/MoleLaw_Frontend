@@ -1,80 +1,50 @@
 import { create } from "zustand";
+import { api, errorMessage, getSessionVersion } from "../../api/client";
+import { validateQuestion } from "../../api/validation";
 import type { Message, QuestionStore } from "../types";
-import axios, { AxiosError } from "axios";
-import { API_BASE_URL } from "../constants";
 import { useDataStore } from "../data/dataStore";
 import { useMessageStore } from "../data/messageStore";
 
-export const useQuestionStore = create<QuestionStore>((set) => ({
-  response: null,
-  loading: false,
-  error: null,
-
-  askQuestion: async (content: string) => {
+export const useQuestionStore = create<QuestionStore>((set, get) => {
+  const send = async (content: string, roomId: number | null, allowCaseSearch = false) => {
+    if (get().loading || useDataStore.getState().roomLoading) return false;
+    const invalid = validateQuestion(content);
+    if (invalid) { set({ error: invalid }); return false; }
+    const version = getSessionVersion();
+    const previous = useMessageStore.getState().messages;
     set({ loading: true, error: null });
-    // 프롬프트 Jailbreak 방지용 검증 코드
-    // if (isMaliciousPrompt(content)) {
-    //   useToastStore
-    //     .getState()
-    //     .showToast("부적절한 프롬프트가 감지되어 로그아웃 합니다.");
-    //   setTimeout(async () => {
-    //     await useAuthStore.getState().logout();
-    //   }, 1500);
-    //   set({ loading: false });
-    //   return;
-    // }
+    useMessageStore.getState().addMessage({ sender: "USER", content });
     try {
-      const res = await axios.post<{ id: number; messages: Message[] }>(
-        `${API_BASE_URL}/chat-rooms/first-message`,
-        { content },
-        { withCredentials: true }
-      );
-      if (res.status === 200) {
-        console.log(res.data);
-        const data = res.data;
-        const messages = data.messages;
+      if (roomId === null) {
+        const { data } = await api.post<{ id: number; messages: Message[] }>("/chat-rooms", { content }, { timeout: 20 * 60_000 });
+        if (version !== getSessionVersion()) return false;
         useDataStore.getState().setSelectedRoomID(data.id);
-        useMessageStore.getState().setMessages(messages);
-        set({ loading: false });
+        useMessageStore.getState().setMessages(data.messages);
+        await useDataStore.getState().loadEvidence(data.id);
+      } else {
+        const { data } = await api.post<Message>(`/chat-rooms/${roomId}/messages`, { content, allowCaseSearch }, { timeout: 20 * 60_000 });
+        if (version !== getSessionVersion()) return false;
+        useMessageStore.getState().addMessage(data);
+        await useDataStore.getState().loadEvidence(roomId);
       }
-    } catch (err) {
-      const error = err as AxiosError<{ message?: string }>;
-      set({
-        error: error.response?.data?.message || "질문 처리 중 오류 발생",
-        loading: false,
-      }); // ✅ 실패 시 null 반환
-    }
-  },
-
-  continueQuestion: async (content: string) => {
-    set({ loading: true, error: null });
-    // if (isMaliciousPrompt(content)) {
-    //   useToastStore
-    //     .getState()
-    //     .showToast("부적절한 프롬프트가 감지되어 로그아웃 합니다.");
-    //   setTimeout(async () => {
-    //     await useAuthStore.getState().logout();
-    //   }, 1500);
-    //   set({ loading: false });
-    //   return;
-    // }
-    try {
-      const selectedRoom = useDataStore.getState().selectedChatRoomID;
-      const res = await axios.post<Message>(
-        `${API_BASE_URL}/chat-rooms/${selectedRoom}/messages`,
-        { content },
-        { withCredentials: true }
-      );
-      if (res.status === 200) {
-        useMessageStore.getState().addMessage(res.data);
-        set({ loading: false });
+      await useDataStore.getState().getChatRoom();
+      return true;
+    } catch (error) {
+      if (version === getSessionVersion()) {
+        useMessageStore.getState().setMessages(previous);
+        set({ error: errorMessage(error, "답변을 생성하지 못했습니다. 과거 상담이라면 새 상담에서 다시 시작해 주세요.") });
       }
-    } catch (err) {
-      const error = err as AxiosError<{ message?: string }>;
-      set({
-        error: error.response?.data?.message || "질문 처리 중 오류 발생",
-        loading: false,
-      });
-    }
-  },
-}));
+      return false;
+    } finally { if (version === getSessionVersion()) set({ loading: false }); }
+  };
+  return {
+    loading: false, error: null, clearError: () => set({ error: null }),
+    askQuestion: (content) => send(content, null),
+    continueQuestion: (content, allowCaseSearch = false) => {
+      const id = useDataStore.getState().selectedChatRoomID;
+      if (id === null) return Promise.resolve(false);
+      return send(content, id, allowCaseSearch);
+    },
+  };
+});
+window.addEventListener("molelaw:session-cleared", () => useQuestionStore.setState({ loading: false, error: null }));

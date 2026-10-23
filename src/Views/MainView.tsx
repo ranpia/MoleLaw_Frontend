@@ -1,253 +1,58 @@
-import styled from "@emotion/styled";
-import Background from "../Components/Layout/Background";
+import { useEffect, useRef } from "react";
+import { useAuthStore, useDataStore, useMessageStore, useQuestionStore } from "../store/storeIndex";
 import SideBar from "../Components/Layout/SideBar";
 import ChattingBar from "../Components/Feature/ChattingSystem/ChattingBar";
-import { useCallback, useEffect, useRef } from "react";
-import { Text } from "../style/colors";
-import ChatBubble from "../Components/Feature/ChattingSystem/ChatBubble";
-import {
-  useAuthStore,
-  useDataStore,
-  useMessageStore,
-  useQuestionStore,
-} from "../store/storeIndex"
-import ReactMarkDown, { type Components } from "react-markdown";
-import InfoBubble from "../Components/Feature/ChattingSystem/InfoBubble";
-import { keyframes } from "@emotion/react";
-import Toast from "../Components/UI/Toast";
+import EvidencePanel from "../Components/Feature/ChattingSystem/EvidencePanel";
+import MarkdownMessage from "../Components/Feature/ChattingSystem/MarkdownMessage";
+import { useState } from "react";
 
-const Wrapper = styled.div`
-  display: grid;
-  grid-template-rows: auto 1fr auto;
-  height: 100vh;
-  color: ${Text};
-
-  user-select: none;
-  box-sizing: border-box;
-`;
-
-const Top = styled.div`
-  display: grid;
-  grid-template-columns: auto auto 1fr;
-  padding: 20px 40px;
-  padding-bottom: 0;
-  box-sizing: border-box;
-  gap: 10px;
-  height: fit-content;
-`;
-
-const Logo = styled.div`
-  display: flex;
-  font-family: "Chiron Sung HK";
-  font-size: 32px;
-  font-weight: 600;
-  align-items: center;
-  color: ${Text};
-`;
-
-const Middle = styled.div`
-  width: 940px;
-  height: 100%;
-  overflow-y: auto;
-  box-sizing: border-box;
-  align-items: flex-start;
-  justify-self: center;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-
-  /* 스크롤 숨기기 */
-  -ms-overflow-style: none; /* IE, Edge */
-  scrollbar-width: none; /* Firefox */
-
-  &::-webkit-scrollbar {
-    display: none; /* Chrome, Safari */
-  }
-`;
-
-const ScreenSaver = styled.div`
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  flex-direction: column;
-  height: 100%;
-  width: 100%;
-
-  font-family: "Chiron Sung HK";
-  font-size: 32px;
-  gap: 20px;
-`;
-
-const Bottom = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding-bottom: 40px;
-  height: fit-content;
-`;
-
-const UserName = styled.span`
-  background: linear-gradient(
-    90deg,
-    rgba(42, 123, 155, 1) 0%,
-    rgba(87, 199, 133, 1) 50%,
-    rgba(237, 221, 83, 1) 100%
-  );
-  background-clip: text;
-  color: transparent;
-  margin: 0;
-  padding: 0;
-`;
-
-const dotFlashing = keyframes`
-  0%   { content: "🔍 검색중"; }
-  25%  { content: "🔍 검색중."; }
-  50%  { content: "🔍 검색중.."; }
-  75%  { content: "🔍 검색중..."; }
-  100% { content: "🔍 검색중"; }
-`;
-
-const LoadingText = styled.div`
-  font-family: "Pretendard", sans-serif;
-  font-size: 16px;
-  position: relative;
-
-  &::after {
-    content: "검색중";
-    animation: ${dotFlashing} 1.5s infinite steps(4);
-    white-space: pre;
-  }
-`;
-
-const MainView: React.FC = () => {
-  const { getChatRoom, selectedChatRoomID } = useDataStore();
-  const { messages, addMessage } = useMessageStore();
-  const { askQuestion, loading, continueQuestion } = useQuestionStore();
-  const { user, isAuthenticated } = useAuthStore();
-  const middleRef = useRef<HTMLDivElement>(null);
-
-  const markdownComponents: Components = {
-    a: ({ href, children, ...props }) => (
-      <a
-      href={href}
-      target="_blank"
-      rel="noopener noreferrer"
-      {...props}
-      >{children}</a>
-    )
-  }
-
-  useEffect(() => {
-    if(isAuthenticated){
-      getChatRoom();
-    }
-  }, [getChatRoom, isAuthenticated]);
-
-  useEffect(() => {
-    if (middleRef.current) {
-      middleRef.current.scrollTo({
-        top: middleRef.current.scrollHeight,
-        behavior: "smooth",
-      });
-    }
-  },[messages])
-
-  const handleAsk = useCallback(async (msg: string) => {
-    addMessage({ sender: "USER", content: msg });
-    if (selectedChatRoomID) {
-      await continueQuestion(msg);
-    } else {
-      await askQuestion(msg);
-    }
-    getChatRoom();
-  },[selectedChatRoomID, getChatRoom, addMessage, askQuestion, continueQuestion]);
-
+export default function MainView() {
+  const { selectedChatRoomID, roomLoading, evidence, newChat } = useDataStore();
+  const { messages } = useMessageStore();
+  const { loading, error, askQuestion, continueQuestion, clearError } = useQuestionStore();
+  const { user } = useAuthStore();
+  const [activeEvidence, setActiveEvidence] = useState<string | null>(null);
+  const [declinedAt, setDeclinedAt] = useState<string | null>(null);
+  const end = useRef<HTMLDivElement>(null);
+  useEffect(() => { end.current?.scrollIntoView({ behavior: "smooth", block: "end" }); }, [messages, loading]);
+  const send = (content: string, allowCaseSearch = false) => selectedChatRoomID === null ? askQuestion(content) : continueQuestion(content, allowCaseSearch);
+  const last = messages[messages.length - 1];
+  const consentKey = `${selectedChatRoomID}:${messages.length}`;
+  const consent = last?.sender === "BOT" && last.caseSearchRequested && declinedAt !== consentKey;
   return (
-    <Background>
+    <div className="app-shell">
       <SideBar />
-      <Wrapper>
-        <Top>
-          <Logo>MoleLaw</Logo>
-          <button
-            style={{
-              background: "none",
-              border: "none",
-              cursor: "pointer",
-              padding: "0",
-            }}
-            onClick={() => window.location.reload()}
-          >
-            <img src="/New Chat.svg"></img>
-          </button>
-        </Top>
-        <Middle ref={middleRef}>
-          {messages?.length > 0 ? (
-            messages.map((msg, idx) => {
-              if (msg.sender === "USER" || msg.sender === "BOT") {
-                return (
-                  <div
-                    key={idx}
-                    style={{
-                      display: "flex",
-                      justifyContent:
-                        msg.sender === "USER" ? "flex-end" : "flex-start",
-                      padding: "8px 20px",
-                      width: "100%",
-                    }}
-                  >
-                    <ChatBubble isUser={msg.sender === "USER"}>
-                      <ReactMarkDown components={markdownComponents}>{msg.content}</ReactMarkDown>
-                    </ChatBubble>
-                  </div>
-                );
-              } else {
-                return (
-                  <div
-                    key={idx}
-                    style={{
-                      display: "flex",
-                      justifyContent: "center",
-                      padding: "8px 20px",
-                      width: "100%",
-                    }}
-                  >
-                    <InfoBubble>
-                      <ReactMarkDown components={markdownComponents}>{msg.content}</ReactMarkDown>
-                    </InfoBubble>
-                  </div>
-                );
-              }
-            })
-          ) : (
-            <ScreenSaver>
-              <img src="/PointCircle.svg" />
-              <UserName>{user?.nickname}님</UserName>
-              오늘의 고민은 무엇인가요?
-            </ScreenSaver>
-          )}
-          {loading && (
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "left",
-                width: "100%",
-                paddingBottom: "20px",
-              }}
-            >
-              <LoadingText />
-            </div>
-          )}
-        </Middle>
-        <Bottom>
-          <ChattingBar
-            onSubmit={(msg) => handleAsk(msg)}
-            chatTrue={messages?.length || 0}
-          />
-        </Bottom>
-      </Wrapper>
-      <Toast/>
-    </Background>
+      <main className="chat-main">
+        <header className="chat-header"><div><span className="eyebrow">법률 상담</span><h1>MoleLaw</h1></div>
+          <button disabled={loading || roomLoading} onClick={() => { newChat(); clearError(); }}>새 상담</button></header>
+        <div className="conversation" aria-busy={loading || roomLoading}>
+          {!messages.length && <div className="welcome">
+            <img src="/PointCircle.svg" alt="" /><h2>{user?.nickname}님,<br />어떤 고민이 있으신가요?</h2>
+            <p>상황을 구체적으로 적어주시면 관련 법령과 근거를 함께 살펴봅니다.</p>
+          </div>}
+          {messages.map((message, index) => message.sender === "INFO" ?
+            <details className="info-message" key={index}><summary>상담에 사용한 근거 안내</summary><MarkdownMessage content={message.content} evidence={evidence} onEvidence={setActiveEvidence} /></details>
+            : <article key={index} className={`message ${message.sender === "USER" ? "user-message" : "bot-message"}`}>
+              <span className="message-author">{message.sender === "USER" ? "나" : "MoleLaw"}</span>
+              <MarkdownMessage content={message.content} evidence={evidence} onEvidence={setActiveEvidence} />
+            </article>)}
+          {consent && <section className="consent-card" aria-label="판례 검색 동의">
+            <p>관련 판례를 추가로 검색할까요?</p><small>승인하면 이번 질문에 한해 외부 판례 검색과 본문 수집을 진행합니다.</small>
+            <div className="button-row"><button disabled={loading || roomLoading} className="primary" onClick={() => void send("네, 관련 판례를 검색해 주세요.", true)}>판례 검색 승인</button>
+              <button disabled={loading || roomLoading} onClick={() => setDeclinedAt(consentKey)}>지금은 검색하지 않기</button></div>
+          </section>}
+          {(loading || roomLoading) && <div className="pending-message" role="status"><span className="spinner" />{roomLoading ? "상담 기록을 불러오고 있습니다…" : "근거를 확인하고 답변을 준비하고 있습니다…"}
+            {loading && <small>법령 수집이 필요한 첫 상담은 수 분 이상 걸릴 수 있습니다. 잠시 기다려 주세요.</small>}</div>}
+          {error && <section className="error-card" role="alert"><p>{error}</p>
+            <small>입력한 질문은 아래에 유지됩니다. 응답을 받지 못했다면 상담 기록을 먼저 확인해 주세요.</small>
+            {selectedChatRoomID !== null && <button disabled={loading || roomLoading} onClick={() => { newChat(); clearError(); }}>새 상담에서 시작하기</button>}</section>}
+          <div ref={end} />
+        </div>
+        <footer className="chat-footer">
+          <ChattingBar key={selectedChatRoomID ?? "new"} disabled={loading || roomLoading} onSubmit={send} onEdit={clearError} />
+        </footer>
+      </main>
+      {selectedChatRoomID !== null && <EvidencePanel key={selectedChatRoomID} roomId={selectedChatRoomID} activeId={activeEvidence} onSelect={setActiveEvidence} />}
+    </div>
   );
-};
-
-export default MainView;
+}

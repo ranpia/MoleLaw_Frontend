@@ -1,307 +1,55 @@
-import styled from "@emotion/styled";
-import { useAuthStore } from "../../../store/storeIndex"
-import { Stroke, Sub, Text } from "../../../style/colors";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
-import { useEffect, useState } from "react";
-import { FaEye, FaEyeSlash, FaRegSave } from "react-icons/fa";
-import { LtoRSlideAnimationArea } from "../../UI/AnimationArea";
-import { TermsOfUseText } from "../../../data/TermsofUse";
-import CustomInput from "../../UI/InputArea";
-import QuitPopup from "./QuitPopup";
-import { useToastStore } from "../../../store/utils/toastStore";
-import { css } from "@emotion/react";
+import { useState, type FormEvent } from "react";
+import { useAuthStore, useToastStore } from "../../../store/storeIndex";
+import { validatePassword } from "../../../api/validation";
 
-const Panel = styled.div<{ show: boolean }>`
-  position: fixed;
-  width: 100vw;
-  height: 100vh;
-  box-sizing: border-box;
-  overflow: hidden;
-  pointer-events: ${({ show }) => (show ? "auto" : "none")};
-  z-index: 2;
-  padding: 0;
-  margin: 0;
-`;
-
-const Wrapper = styled.div<{ show: boolean }>`
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 750px;
-  height: 750px;
-  box-sizing: border-box;
-  padding: 70px 80px;
-  border-radius: 10px;
-  border: 1px solid ${Stroke};
-  box-shadow: 0px 7px 10px #535353;
-  box-sizing: border-box;
-
-  background-color: #ffffff6e;
-  backdrop-filter: blur(20px);
-
-  display: grid;
-  grid-template-rows: auto auto auto auto 1fr;
-  z-index: 1000;
-
-  opacity: ${({ show }) => (show ? 1 : 0)};
-  transition: opacity 0.5s ease-in-out;
-  pointer-events: ${({ show }) => (show ? "auto" : "none")};
-  overflow-y: scroll;
-
-  /* 스크롤 숨기기 */
-  -ms-overflow-style: none; /* IE, Edge */
-  scrollbar-width: none; /* Firefox */
-
-  &::-webkit-scrollbar {
-    display: none; /* Chrome, Safari */
-  }
-`;
-
-const ChangeButton = styled.button`
-  padding: 0;
-  margin: 0;
-  height: 25px;
-  width: 60px;
-  border-radius: 10px;
-  background-color: #2c2c2c;
-  color: white;
-
-  font-size: 12px;
-  font-family: pretendard;
-
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
-  &:active{
-  transform: scale(0.95);
-  }
-`;
-
-const SettingTitle = styled.div`
-  text-align: left;
-  font-size: 32px;
-  font-family: "Chiron Sung HK";
-  padding: 10px 0 20px 0;
-  margin: 0;
-  height: fit-content;
-`;
-
-const PersonalProfile = styled.div`
-  display: grid;
-  grid-template-columns: auto 1fr;
-  height: fit-content;
-  gap: 50px;
-
-  padding-bottom: 30px;
-  box-sizing: border-box;
-  border-bottom: 1px solid ${Stroke};
-`;
-
-const PersonalProfileText = styled.div`
-  display: grid;
-  grid-template-rows: auto auto;
-  text-align: left;
-
-  font-family: "Chiron Sung HK";
-  color: ${Text};
-`;
-
-const ProfileArea = styled.div`
-  display: grid;
-  grid-template-rows: auto auto auto auto;
-  border-bottom: 1px solid ${Stroke};
-`;
-
-const AccountArea = styled.div`
-  display: grid;
-  grid-template-rows: auto auto auto auto;
-
-  border-bottom: 1px solid ${Stroke};
-`;
-
-const OptionStyle = styled.div`
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-
-  box-sizing: border-box;
-  padding-bottom: 15px;
-
-  font-size: 18px;
-  font-family: pretendard;
-`;
-
-const TermsOfUseArea = styled.div`
-  display: grid;
-  grid-template-rows: auto 1fr;
-`;
-
-const TermsOfUse = styled.div`
-  width: 100%;
-  height: 550px;
-
-  overflow-y: scroll;
-  overflow-x: hidden;
-
-  box-sizing: border-box;
-  padding-right: 10px;
-
-  text-align: left;
-  font-family: Pretendard;
-
-  &::-webkit-scrollbar {
-    width: 10px; /* Chrome, Safari */
-  }
-  &::-webkit-scrollbar-thumb {
-    background-color: ${Sub};
-    border-radius: 20px;
-  }
-`;
-
-const InputAlignment = css`
-  margin-bottom: 10px;
-  justify-self: flex-end;
-`
-
-interface Props {
-  show: boolean;
-  showHandle: () => void;
-}
-
-const SettingPanel: React.FC<Props> = ({ show, showHandle }) => {
-  const { user, changeNickname, changePassword } = useAuthStore();
-  const { showToast } = useToastStore();
-
+interface Props { show: boolean; showHandle: () => void }
+export default function SettingPanel({ show, showHandle }: Props) {
+  const { user, isLoading, changeNickname, changePassword, quit } = useAuthStore();
+  const [nickname, setNickname] = useState(user?.nickname || "");
   const [password, setPassword] = useState("");
-  const [passwordCheck, setPasswordCheck] = useState("");
-  const [newNickname, setNewNickname] = useState("");
-
-  const [nameClick, setNameClick] = useState(false);
-  const [passwordClick, setPasswordClick] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
-  const [quitClick, setQuitClick] = useState(false);
-
-  useEffect(() => {
-    if (!show) {  
-      setQuitClick(false);
-    }
-  }, [show]);
-
-  const handleNewNickname = async () => {
-    const msg = await changeNickname(newNickname);
-    setNewNickname("");
-    setNameClick(false);
-    showToast(msg);
+  const [confirm, setConfirm] = useState("");
+  const [email, setEmail] = useState("");
+  const [message, setMessage] = useState("");
+  const [quitOpen, setQuitOpen] = useState(false);
+  const notify = (value: string) => { setMessage(value); useToastStore.getState().showToast(value); };
+  const changeName = async (e: FormEvent) => { e.preventDefault(); notify(await changeNickname(nickname)); };
+  const changePass = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!validatePassword(password)) { notify("비밀번호는 8~72자 및 UTF-8 72바이트 이내로 입력해 주세요."); return; }
+    if (password !== confirm) { notify("비밀번호가 일치하지 않습니다."); return; }
+    notify(await changePassword(password));
+    setPassword(""); setConfirm("");
   };
-
-  const handleNewPassword = async () => {
-    if(password === passwordCheck){
-      const msg = await changePassword(password);
-      setPassword("");
-      setPasswordCheck("");
-      setPasswordClick(false);
-      showToast(msg);
-    } else{
-      showToast("패스워드가 일치하지 않습니다.")
-    }
-  }
-
-  return (
-    <Panel onClick={showHandle} show={show}>
-      <Wrapper show={show} onClick={(e) => e.stopPropagation()}>
-        <PersonalProfile>
-          <img src="/PointCircle.svg" />
-          <PersonalProfileText>
-            <div style={{ fontSize: "38px", fontWeight: "bold" }}>
-              {user?.nickname}
-            </div>
-            <div style={{ fontSize: "24px" }}>{user?.email}</div>
-          </PersonalProfileText>
-        </PersonalProfile>
-        <ProfileArea>
-          <SettingTitle>Profile</SettingTitle>
-          <OptionStyle>
-            이름 변경
-            <ChangeButton onClick={() => setNameClick((prev) => !prev)}>
-              변경
-            </ChangeButton>
-          </OptionStyle>
-          <LtoRSlideAnimationArea show={nameClick}>
-            {nameClick && (
-            <CustomInput
-              inputType={"text"}
-              inputName={"새로운 닉네임"}
-              Icon={FaRegSave}
-              onChange={(e) => setNewNickname(e.target.value)}
-              IconJob={() => handleNewNickname()}
-              CustomStyle={InputAlignment}
-            />
-            )}
-          </LtoRSlideAnimationArea>
-          <OptionStyle>
-            프로필 사진 변경
-            <ChangeButton> 변경 </ChangeButton>
-          </OptionStyle>
-        </ProfileArea>
-        <AccountArea>
-          <SettingTitle>Account</SettingTitle>
-          <OptionStyle>
-            비밀번호 변경
-            <ChangeButton onClick={() => setPasswordClick((prev) => !prev)}>
-              {" "}
-              변경{" "}
-            </ChangeButton>
-          </OptionStyle>
-          <LtoRSlideAnimationArea show={passwordClick}>
-            {passwordClick && (
-            <CustomInput
-              inputType={showPassword ? "text" : "password"}
-              inputName={"비밀번호"}
-              Icon={ showPassword ? FaEye : FaEyeSlash}
-              onChange={(e) => setPassword(e.target.value)}
-              IconJob={() => setShowPassword((prev) => !prev)}
-              CustomStyle={InputAlignment}
-            />
-            )}
-          </LtoRSlideAnimationArea>
-          <LtoRSlideAnimationArea show={Boolean(password)}>
-            {password && passwordClick && (
-            <CustomInput
-              inputType={showPassword ? "text" : "password"}
-              inputName={"비밀번호 확인"}
-              Icon={ FaRegSave }
-              onChange={(e) => setPasswordCheck(e.target.value)}
-              IconJob={() => handleNewPassword()}
-              CustomStyle={InputAlignment}
-            />
-            )}
-          </LtoRSlideAnimationArea>
-          <OptionStyle>
-            회원 탈퇴
-            <ChangeButton
-              style={{ backgroundColor: "Red", color: "white" }}
-              onClick={() => setQuitClick((prev) => !prev)}
-            >
-              {" "}
-              탈퇴{" "}
-            </ChangeButton>
-          </OptionStyle>
-        </AccountArea>
-        <TermsOfUseArea>
-          <SettingTitle>Terms Of Use</SettingTitle>
-          <TermsOfUse>
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>
-              {TermsOfUseText}
-            </ReactMarkdown>
-          </TermsOfUse>
-        </TermsOfUseArea>
-      </Wrapper>
-      <QuitPopup show={quitClick && show} />
-    </Panel>
-  );
-};
-
-export default SettingPanel;
+  const deleteAccount = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!email || email !== user?.email || isLoading) return;
+    if (!await quit()) notify(useAuthStore.getState().error || "탈퇴에 실패했습니다.");
+  };
+  if (!show) return null;
+  return <div className="modal-backdrop" onClick={() => { if (!isLoading) showHandle(); }}>
+    <section className="settings-card" role="dialog" aria-modal="true" aria-labelledby="settings-title" onClick={(e) => e.stopPropagation()}
+      onKeyDown={(e) => { if (e.key === "Escape" && !isLoading) showHandle(); }}>
+      <div className="section-heading"><h2 id="settings-title">계정 설정</h2><button autoFocus disabled={isLoading} onClick={showHandle} aria-label="설정 닫기">×</button></div>
+      <p>{user?.email}</p>
+      <form className="stack" onSubmit={(e) => void changeName(e)}>
+        <label>닉네임<input value={nickname} minLength={2} maxLength={50} required disabled={isLoading} onChange={(e) => setNickname(e.target.value)} /></label>
+        <button disabled={isLoading} type="submit">닉네임 저장</button>
+      </form>
+      <form className="stack" onSubmit={(e) => void changePass(e)}>
+        <h3>비밀번호 변경</h3>
+        <p className="muted">8~72자, UTF-8 72바이트 이내. 변경 후 다시 로그인해 주세요.</p>
+        <label>새 비밀번호<input type="password" autoComplete="new-password" required disabled={isLoading} value={password} onChange={(e) => setPassword(e.target.value)} /></label>
+        <label>새 비밀번호 확인<input type="password" autoComplete="new-password" required disabled={isLoading} value={confirm} onChange={(e) => setConfirm(e.target.value)} /></label>
+        <button disabled={isLoading} type="submit">비밀번호 변경</button>
+      </form>
+      {message && <p role="status">{message}</p>}
+      <hr />
+      <button className="danger" disabled={isLoading} onClick={() => setQuitOpen(!quitOpen)}>회원 탈퇴</button>
+      {quitOpen && <form className="stack" onSubmit={(e) => void deleteAccount(e)}>
+        <p>탈퇴하면 계정과 상담 기록이 삭제됩니다. 확인을 위해 이메일을 입력해 주세요.</p>
+        <label>탈퇴 확인 이메일<input type="email" value={email} disabled={isLoading} onChange={(e) => setEmail(e.target.value)} /></label>
+        <button type="submit" className="danger" disabled={isLoading || !email || email !== user?.email}>계정과 상담 기록 삭제</button>
+      </form>}
+    </section>
+  </div>;
+}

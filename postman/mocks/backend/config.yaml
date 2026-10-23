@@ -1,0 +1,10 @@
+version: 1
+name: MoleLaw frontend contract fixture
+slug: molelaw-frontend-contract
+protocol: http
+port: 4901
+interceptRequests: true
+scenarios:
+  - name: default
+    path: ./default.js
+    default: true

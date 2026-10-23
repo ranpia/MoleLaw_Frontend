@@ -1,222 +1,93 @@
-import axios, { AxiosError } from "axios";
-import { API_BASE_URL, OAUTH2_URL } from "../constants";
 import { create } from "zustand";
-import type { AuthStore } from "../types";
+import { api, clearSession, errorMessage, getSessionVersion, invalidateCsrf, renewSession, type ApiEnvelope } from "../../api/client";
+import { validatePassword } from "../../api/validation";
+import { OAUTH2_URL } from "../constants";
+import type { AuthStore, User } from "../types";
 
+let initialization: Promise<boolean> | undefined;
 export const useAuthStore = create<AuthStore>((set, get) => ({
-  user: null,
-  isLoading: false,
-  error: null,
-  isAuthenticated: false,
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  setUser: (user: any) => set({ user }),
-
-  //Auth Check
-  checkAuthStatus: async () => {
-    try {
-      const response = await axios.get(`${API_BASE_URL}/auth/me`, {
-        withCredentials: true,
-      });
-      if (response.status === 200) {
-        set({
-          user: response.data.data,
-          isAuthenticated: true,
-          isLoading: false,
-        });
+  user: null, isAuthenticated: false, isLoading: false, error: null, initialized: false,
+  checkAuthStatus: () => {
+    if (initialization) return initialization;
+    const version = getSessionVersion();
+    initialization = (async () => {
+      try {
+        const { data } = await api.get<ApiEnvelope<User>>("/users/me");
+        if (version !== getSessionVersion()) return false;
+        set({ user: data.data, isAuthenticated: true, error: null });
         return true;
-      }
-    } catch {
-      set({
-        user: null,
-        isAuthenticated: false,
-        isLoading: false,
-      });
-    }
-    return false;
+      } catch (error) {
+        if (version === getSessionVersion()) set({ user: null, isAuthenticated: false, error: errorMessage(error) });
+        return false;
+      } finally { set({ initialized: true }); initialization = undefined; }
+    })();
+    return initialization;
   },
-
-  
   refreshToken: async () => {
+    try { await renewSession(); return true; }
+    catch (error) { set({ error: errorMessage(error) }); return false; }
+  },
+  LocalLogin: async (email, password) => {
+    if (get().isLoading) return "로그인 처리 중입니다.";
+    set({ isLoading: true, error: null });
     try {
-      const res = await axios.post(
-        `${API_BASE_URL}/auth/reissue`,
-        {},
-        { withCredentials: true }
-      );
-
-      if (res.status === 200) {
-        return true;
-      }
-      return false;
-    } catch {
-      set({ isAuthenticated: false });
-      return false;
-    }
+      await api.post("/auth/login", { email: email.trim(), password });
+      invalidateCsrf();
+      return await get().checkAuthStatus() ? "로그인 성공" : "로그인 후 사용자 정보를 확인하지 못했습니다.";
+    } catch (error) { const message = errorMessage(error, "로그인에 실패했습니다."); set({ error: message }); return message; }
+    finally { set({ isLoading: false }); }
   },
-
-  LocalSignUp: async (email: string, password: string, nickname: string) => {
-    set({ isLoading: true });
+  LocalSignUp: async (email, password, nickname) => {
+    if (get().isLoading) return "가입 처리 중입니다.";
+    if (!validatePassword(password)) return "비밀번호는 8~72자 및 UTF-8 72바이트 이내로 입력해 주세요.";
+    if (nickname.trim().length < 2 || nickname.trim().length > 50) return "닉네임은 2~50자로 입력해 주세요.";
+    set({ isLoading: true, error: null });
     try {
-      const res = await axios.post(
-        `${API_BASE_URL}/auth/signup`,
-        {
-          email: email,
-          password: password,
-          nickname: nickname,
-        },
-        {
-          withCredentials: true,
-        }
-      );
-      set({
-        user: res.data,
-        isLoading: false,
-      });
-      return "가입 성공";
-    } catch (error) {
-      set({ isLoading: false });
-      const err = error as AxiosError;
-      if(err.status === 400){
-        return "이미 가입한 이메일입니다."
-      } else if (err.status === 500){
-        return "가입에 실패했습니다, 다시 시도해주세요"
-      } else return "가입 실패";
-    }
+      await api.post("/auth/signup", { email: email.trim(), password, nickname: nickname.trim() });
+      invalidateCsrf();
+      return await get().checkAuthStatus() ? "가입 성공" : "가입은 완료했지만 사용자 정보를 확인하지 못했습니다. 로그인해 주세요.";
+    } catch (error) { const message = errorMessage(error, "가입에 실패했습니다."); set({ error: message }); return message; }
+    finally { set({ isLoading: false }); }
   },
-
-  LocalLogin: async (email: string, password: string) => {
-    set({ isLoading: true });
-    try {
-      await axios.post(
-        `${API_BASE_URL}/auth/login`,
-        {
-          email: email,
-          password: password,
-        },
-        {
-          withCredentials: true,
-        }
-      );
-      
-      // 로그인 성공 시 처리
-      await get().checkAuthStatus();
-      return "로그인 성공";
-    } catch (error){
-      set({ isLoading: false });
-      const err = error as AxiosError;
-      if(err?.status === 400){
-          return "비밀번호가 틀립니다."
-      }else if (err?.status === 502) {
-          return "존재하지 않는 이메일 입니다."
-      } else return "로그인 실패";
-    }
-  },
-
-  //구글 로그인
-  googleLogin: () => {
-    set({ isLoading: true });
-
-    window.location.href = `${OAUTH2_URL}/google`;
-  },
-
-  //카카오 로그인
-  kakaoLogin: () => {
-    set({ isLoading: true });
-
-    window.location.href = `${OAUTH2_URL}/kakao`;
-  },
-
-  //로그아웃 => 세션 삭제 && JWT 토큰 무효화 요청
+  googleLogin: () => { window.location.assign(`${OAUTH2_URL}/google`); },
+  kakaoLogin: () => { window.location.assign(`${OAUTH2_URL}/kakao`); },
   logout: async () => {
-    try {
-      await axios.post(
-        `${API_BASE_URL}/auth/logout`,
-        {},
-        {
-          withCredentials: true,
-        }
-      );
-      set({ user: null, isAuthenticated: false });
-      return true;
-    } catch {
-      return false;
-    }
+    if (get().isLoading) return false;
+    set({ isLoading: true, error: null });
+    try { await api.post("/auth/logout"); clearSession(); return true; }
+    catch (error) { set({ error: errorMessage(error, "로그아웃에 실패했습니다.") }); return false; }
+    finally { set({ isLoading: false }); }
   },
-
   quit: async () => {
-    try {
-      await axios.delete(`${API_BASE_URL}/auth/me`, {
-        withCredentials: true,
-      });
-      set({ user: null, isAuthenticated: false });
-      return true;
-    } catch {
-      return false;
-    }
+    if (get().isLoading) return false;
+    set({ isLoading: true, error: null });
+    try { await api.delete("/users/me"); clearSession(); return true; }
+    catch (error) { set({ error: errorMessage(error, "탈퇴에 실패했습니다.") }); return false; }
+    finally { set({ isLoading: false }); }
   },
-
-  changeNickname: async (newNickName: string) => {
-    const success = "닉네임 변경에 성공하였습니다.";
-    const fail = "닉네임 변경에 실패하였습니다.";
+  changeNickname: async (nickname) => {
+    if (nickname.trim().length < 2 || nickname.trim().length > 50) return "닉네임은 2~50자로 입력해 주세요.";
+    if (get().isLoading) return "변경 처리 중입니다.";
+    set({ isLoading: true });
     try {
-      const res = await axios.patch(
-        `${API_BASE_URL}/auth/nickname`,
-        {
-          newNickname: newNickName,
-        },
-        {
-          withCredentials: true,
-        }
-      );
-      if (res.status === 200) {
-        get().checkAuthStatus();
-        return success;
-      }
-      return fail;
-    } catch {
-      return fail;
-    }
+      await api.patch("/users/me/nickname", { newNickname: nickname.trim() });
+      await get().checkAuthStatus();
+      return "닉네임 변경에 성공하였습니다.";
+    } catch (error) { return errorMessage(error, "닉네임 변경에 실패했습니다."); }
+    finally { set({ isLoading: false }); }
   },
-
-  changePassword: async (newPassword: string) => {
-    const fail = "비밀번호 변경에 실패하였습니다.";
+  changePassword: async (password) => {
+    if (!validatePassword(password)) return "비밀번호는 8~72자 및 UTF-8 72바이트 이내로 입력해 주세요.";
+    if (get().isLoading) return "변경 처리 중입니다.";
+    set({ isLoading: true });
     try {
-      const res = await axios.patch(
-        `${API_BASE_URL}/auth/password`,
-        {
-          newPassword: newPassword,
-        },
-        {
-          withCredentials: true,
-        }
-      );
-      if (res.status === 200) {
-        get().checkAuthStatus();
-        return "비밀번호 변경에 성공하였습니다.";
-      }
-      return fail;
-    } catch (error) {
-      const err = error as AxiosError;
-      if (err.response?.status === 400) {
-        return "소셜 계정은 비밀번호 변경이 불가합니다.";
-      } else {
-        return fail;
-      }
-    }
+      await api.patch("/users/me/password", { newPassword: password });
+      clearSession();
+      return "비밀번호를 변경했습니다. 새 비밀번호로 다시 로그인해 주세요.";
+    } catch (error) { return errorMessage(error, "비밀번호 변경에 실패했습니다."); }
+    finally { set({ isLoading: false }); }
   },
 }));
-
-// GPT Jailbreak 검증용 패턴. 필요시 사용 (현재 Backend 에서 사용중)
-// const bannedPatterns = [
-//   /ignore\s+(all\s+)?previous\s+instructions/i,
-//   /jailbreak/i,
-//   /DAN/i,
-//   /developer\s+mode/i,
-//   /simulate\s+a\s+chatgpt\s+instance/i,
-//   /UserQuery\s/i,
-// ];
-
-// function isMaliciousPrompt(prompt: string): boolean {
-//   return bannedPatterns.some((pattern) => pattern.test(prompt));
-// }
+window.addEventListener("molelaw:session-cleared", () => {
+  useAuthStore.setState({ user: null, isAuthenticated: false, error: null });
+});

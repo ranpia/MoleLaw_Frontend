@@ -1,78 +1,24 @@
-import './App.css'
-import { Global } from '@emotion/react'
-import { GlobalStyles } from './style/globalStyle'
-import { BrowserRouter } from 'react-router-dom'
-import Router from './routes/index'
-import { useEffect, useState, type ReactNode } from 'react'
-import { useAuthStore } from "./store/storeIndex"
-import LoginPanel from './Components/Feature/LoginSystem/LoginPanel'
-
-interface props{
-  children : ReactNode;
-}
-
-const ProtectedRoute:React.FC<props> = ({children}) => {
-  const {isAuthenticated, checkAuthStatus, refreshToken, user} = useAuthStore();
-  
-  const [isInitialized, setInitialized] = useState(false);
-
-  //Authentication System
-  useEffect(() => {
-    const verifyAuth = async () => {
-      try{
-        await checkAuthStatus();
-      }catch{
-        return;
-      } 
-      finally {
-        setInitialized(true);
-      }
-    }
-
-    if(!isInitialized){
-      verifyAuth();
-    }
-  }, [checkAuthStatus,isInitialized])
-
-
-  //Token Refresh System
-  useEffect(() => {
-    if (!user) return;
-
-    refreshToken();
-
-    const intervalID = setInterval(() => {
-      refreshToken();
-    }, 14*60*1000);
-
-    return () => {
-      clearInterval(intervalID);
-    };
-  }, [user, refreshToken]);
-
-  if(!isAuthenticated){
-    return (
-      <>
-        <LoginPanel/>
-        {children}
-      </>
-  )}
-
-  return children;
-}
+import { Global } from "@emotion/react";
+import { BrowserRouter } from "react-router-dom";
+import { useEffect } from "react";
+import { GlobalStyles } from "./style/globalStyle";
+import Router from "./routes";
+import { useAuthStore } from "./store/storeIndex";
+import LoginPanel from "./Components/Feature/LoginSystem/LoginPanel";
+import Toast from "./Components/UI/Toast";
 
 function App() {
-
+  const { initialized, isAuthenticated, checkAuthStatus } = useAuthStore();
+  useEffect(() => { void checkAuthStatus(); }, [checkAuthStatus]);
   return (
     <>
       <Global styles={GlobalStyles} />
       <BrowserRouter>
-        <ProtectedRoute>
-          <Router/>
-        </ProtectedRoute>
+        {!initialized ? <div className="initial-loading" role="status">로그인 상태를 확인하고 있습니다…</div>
+          : isAuthenticated ? <Router /> : <LoginPanel />}
       </BrowserRouter>
+      <Toast />
     </>
-    )
+  );
 }
-
-export default App
+export default App;

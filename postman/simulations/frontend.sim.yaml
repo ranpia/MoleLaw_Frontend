@@ -1,0 +1,5 @@
+simulation: molelaw-frontend
+routing: path
+mocks:
+  - routeKey: backend
+    path: ../mocks/backend/config.yaml

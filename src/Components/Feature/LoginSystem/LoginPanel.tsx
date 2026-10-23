@@ -1,100 +1,58 @@
-import styled from "@emotion/styled";
-import { Stroke, Text } from "../../../style/colors";
-import LoginMenu from "./LoginMenu";
-import { useEffect, useState } from "react";
-import Signin from "./Signin";
-import Signup from "./Signup";
-import TermsOfUse from "./TermsOfUse";
+import { useState, type FormEvent } from "react";
+import { useAuthStore, useToastStore } from "../../../store/storeIndex";
+import { validatePassword } from "../../../api/validation";
+import ReactMarkdown from "react-markdown";
+import { TermsOfUseText } from "../../../data/TermsofUse";
 
-const Wrapper = styled.div`
-  position: absolute;
-  background-color: #dfdfdfaf;
-  width: 100vw;
-  height: 100vh;
-  backdrop-filter: blur(10px);
-
-  display: flex;
-  justify-content: center;
-  align-items: center;
-
-  z-index: 1000;
-  color: ${Text};
-`;
-
-const Panel = styled.div`
-    width: 500px;
-  height: 600px;
-  background-color: #ffffffb7;
-  border: 1px solid ${Stroke};
-  border-radius: 20px;
-  box-shadow: 0px 10px 15px #00000055;
-
-  overflow: hidden;
-  
-`
-
-const SignUpArea = styled.div<{termhandle: boolean}>`
-  display:grid;
-  width:500px;
-  height:1200px;
-  grid-template-rows: 1fr 1fr;
-
-  transform: ${({ termhandle }) => termhandle ? "translateY(-600px)" : "translateY(0px)"};
-  transition: transform 0.5s ease-in-out;
-`
-
-const AnimatedArea = styled.div<{ loginhandle: boolean, signinhandle: boolean }>`
-  transform: ${({ loginhandle, signinhandle }) => loginhandle ? "translateX(0)" : signinhandle ? "translateX(-1000px)" : "translateX(-500px)"};
-  transition: transform 0.5s ease-in-out;
-
-  display:flex;
-  flex-direction: row;
-  width: fit-content;
-  height: 600px;
-`;
-
-
-const LoginPanel: React.FC = () => {
-  const [emailClick, setEmailClick] = useState(false);
-  const [loginMenuRenderer,setLoginMenuRenderer] = useState(true);
-  const [signinRenderer, setSigninRenderer] = useState(false);
-  const [termsRenderer, setTermsRenderer] = useState(false);
-
-  const handleEmailClick = () => {
-    setEmailClick((prev) => !prev);
+export default function LoginPanel() {
+  const [mode, setMode] = useState<"login" | "signup">("login");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [nickname, setNickname] = useState("");
+  const [agreed, setAgreed] = useState(false);
+  const [message, setMessage] = useState("");
+  const { LocalLogin, LocalSignUp, googleLogin, kakaoLogin, isLoading } = useAuthStore();
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
+    if (isLoading) return;
+    if (mode === "signup") {
+      if (!validatePassword(password)) { setMessage("비밀번호는 8~72자 및 UTF-8 72바이트 이내로 입력해 주세요."); return; }
+      if (password !== confirm) { setMessage("비밀번호가 일치하지 않습니다."); return; }
+      if (!agreed) { setMessage("이용 약관에 동의해 주세요."); return; }
+    }
+    const result = mode === "login" ? await LocalLogin(email, password) : await LocalSignUp(email, password, nickname);
+    setMessage(result);
+    useToastStore.getState().showToast(result);
   };
-
-  const handleterms = () => {
-    setTermsRenderer((prev) => !(prev))
-  }
-
-  const handleSignin = () => {
-    setSigninRenderer((prev) => !prev);
-  }
-
-  useEffect (() => {
-    if (!emailClick) {
-        setLoginMenuRenderer(true);
-    }
-    else {
-        setLoginMenuRenderer(false);
-    }
-  }, [emailClick])
-
   return (
-    <Wrapper>
-        <Panel>
-            <AnimatedArea loginhandle={loginMenuRenderer} signinhandle={signinRenderer}>
-                <LoginMenu onEmailClick={handleEmailClick} />
-                <Signin onArrowClick={handleEmailClick} handleSignup={handleSignin}/>
-                <SignUpArea termhandle={termsRenderer}>
-                  <Signup handleSignin={handleSignin} terms={handleterms}/>
-                  <TermsOfUse terms={handleterms} />
-                </SignUpArea>
-            </AnimatedArea>
-        </Panel>
-    </Wrapper>
+    <main className="auth-page">
+      <section className="auth-card" aria-labelledby="auth-title">
+        <img className="brand-mark" src="/PointCircle.svg" alt="" />
+        <h1 id="auth-title">MoleLaw</h1>
+        <p className="muted">법령과 근거를 함께 살펴보는 법률 상담</p>
+        <div className="auth-tabs">
+          {(["login", "signup"] as const).map((value) => <button key={value} type="button" disabled={isLoading} aria-pressed={mode === value}
+            onClick={() => { setMode(value); setMessage(""); setPassword(""); setConfirm(""); }}>{value === "login" ? "로그인" : "회원가입"}</button>)}
+        </div>
+        <form onSubmit={(event) => void submit(event)} className="stack">
+          <label>이메일<input type="email" required maxLength={254} autoComplete="email" value={email} disabled={isLoading} onChange={(e) => setEmail(e.target.value)} /></label>
+          {mode === "signup" && <label>닉네임<input required minLength={2} maxLength={50} autoComplete="nickname" value={nickname} disabled={isLoading} onChange={(e) => setNickname(e.target.value)} /><small>2~50자</small></label>}
+          <label>비밀번호<input type="password" required maxLength={72} autoComplete={mode === "login" ? "current-password" : "new-password"} value={password} disabled={isLoading} onChange={(e) => setPassword(e.target.value)} />
+            {mode === "signup" && <small>8~72자 · UTF-8 72바이트 이내</small>}</label>
+          {mode === "signup" && <>
+            <label>비밀번호 확인<input type="password" required autoComplete="new-password" value={confirm} disabled={isLoading} onChange={(e) => setConfirm(e.target.value)} /></label>
+            <details className="terms"><summary>이용 약관 · 개인정보 수집 및 이용</summary><ReactMarkdown>{TermsOfUseText}</ReactMarkdown></details>
+            <label className="checkbox-label"><input type="checkbox" checked={agreed} disabled={isLoading} onChange={(e) => setAgreed(e.target.checked)} />이용 약관에 동의합니다.</label>
+          </>}
+          {message && <p role="alert" className="error">{message}</p>}
+          <button className="primary" type="submit" disabled={isLoading}>{isLoading ? "처리 중…" : mode === "login" ? "로그인" : "회원가입"}</button>
+        </form>
+        <div className="social-logins">
+          <button disabled={isLoading} onClick={googleLogin}>Google로 로그인</button>
+          <button disabled={isLoading} onClick={kakaoLogin}>카카오로 로그인</button>
+        </div>
+      </section>
+    </main>
   );
-};
-
-export default LoginPanel;
+}

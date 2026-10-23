@@ -103,7 +103,7 @@ const QuitPopup:React.FC<Props> = ({show}) => {
                 <InputAreaField value={email} placeholder={user?.email} onChange={(e) => setEmail(e.target.value)}/>
                 </InputArea>
                 <ErrorMessage>
-                    {email ? email === user.email ? null : "이메일이 일치하지 않습니다" : null }
+                    {email ? email === user?.email ? null : "이메일이 일치하지 않습니다" : null }
                 </ErrorMessage>
                 <QuitButton onClick={handleQuit} Active={email === user?.email}>
                     회원 탈퇴
