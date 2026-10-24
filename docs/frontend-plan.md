@@ -1,5 +1,39 @@
 # 프론트 작업 현황과 계획
 
+## 2026-10-24 실행 서버 NDJSON 명세 확인
+
+### 구조 정리 및 후속 NDJSON 연결
+
+- 최종 구조 정리 후 build·lint·verify:stream 재통과. `node scripts/browser-check.mjs live`도 통과하여 가입·프로필·새로고침 유지·Access 쿠키 누락 시 단일 Refresh 복구·닉네임 변경·로그아웃 200·재로그인·임시 계정 삭제를 확인했다. 이전 5173 Origin에서의 브라우저 로그아웃 403은 현재 3000 환경에서는 재현되지 않았다. 인증 산출물 `.artifacts.local/browser-live-1792835194607/`.
+
+- API 환경설정과 서버 타입을 `src/api/config.ts`, `types.ts`로 이동하고 인증·채팅 JSON 호출을 `auth.ts`, `chat.ts`로 모았다. 스토어는 상태와 작업 흐름을 담당하고 근거 패널은 API 모듈을 사용한다.
+- 메시지 렌더링을 ConversationMessage, 로딩 표시를 LoadingIndicator로 분리하고 실제 import에서 사용하지 않는 이전 화면·스타일 12개 파일을 제거했다. 자세한 배치는 [프로젝트 구조](project-structure.md)에 기록했다.
+- 로컬 Swagger 재조회에서 `POST /api/chat-rooms/{roomId}/messages/ndjson` 추가 확인. `{ content, allowCaseSearch }`를 보내고 `completed.messageResult`를 최종 BOT 메시지로 반영한다. 판례 검색 동의는 요청별로 유지한다.
+- 최초·후속 공통 스트림 파서와 draftWriter를 사용한다. 임시 답변은 기본 30ms마다 3코드포인트씩 표시하며 긴 대기는 완화한다. 완료 이벤트 뒤 대기 중인 임시 텍스트 표시를 마친 후 검증된 저장 결과로 교체한다. 오류·세션 종료 시 대기 타이머와 임시 결과를 정리한다.
+- `node scripts/verify-stream.mjs` 통과: 바이트별 한글·이모지 청크, CRLF·마지막 개행 누락, heartbeat, 후속 결과·동의 필드, 오류·미완료 스트림·완료 결과 누락, 자동 재시도 없음, 표시 속도와 취소.
+- `node scripts/browser-check.mjs ndjson` 실제 서버·브라우저 검증 통과: 최초·후속 NDJSON 200, 임시·최종 표시, 중복 전송 방지, 저장·새로고침 복원, 모바일, JS 예외 없음, 임시 계정 삭제 204. 산출물 `.artifacts.local/browser-ndjson-1792835092109/`.
+- 이전 JSON API용 Postman simulation fixture는 NDJSON 전환에 맞춘 갱신이 필요하다. 실제 서버 연동 결과와 모의 fixture 검증 결과를 혼동하지 않는다.
+
+### 연결 구현 및 실제 브라우저 검증 완료
+
+- 후속 UI 요청: 로딩 점의 상하 움직임을 더 선명하게 조정했다(1.4초 주기, 순차 지연). OS의 움직임 줄이기 설정 때문에 기존 애니메이션이 멈추던 문제는 사용자의 명시적 움직임 요청에 따라 로딩 점에 한해 3px의 느린 움직임으로 조정했다. 다른 모션 축소 설정은 유지한다.
+
+- 새 상담을 `POST /api/chat-rooms/ndjson`에 연결했다. fetch 스트림의 UTF-8 청크·줄 경계를 처리하고, progress/전체 info/임시 delta를 표시한 뒤 completed.room으로 저장된 메시지를 반영한다. 오류·미완료 연결 종료 시 임시 결과를 제거하며 상담 POST 자동 재시도는 하지 않는다.
+- 로딩 점 애니메이션과 움직임 줄이기 설정 대응을 추가했다. 후속 질문은 기존 JSON API를 유지한다.
+- 실제 서버는 Origin `http://localhost:3000`을 허용하고 `http://localhost:5173`을 403으로 거절했다. Vite 개발·preview, 프론트 Docker 포트와 안내를 3000으로 맞췄다. 백엔드 보안 정책과 프록시 Origin은 변경하지 않았다.
+- `node scripts/browser-check.mjs ndjson` 통과: 실제 가입·CSRF·프록시 NDJSON 200, 로딩 애니메이션, 서버 진행·근거·답변 조각·최종 답변 표시, 중복 전송 방지, 답변·근거 저장, 새로고침 후 이력 복원, 390px 화면, 미처리 JavaScript 오류 없음, 임시 계정 삭제 204.
+- 검증 산출물: `.artifacts.local/browser-ndjson-1792833608163/`. 첫 애니메이션 검증은 OS의 움직임 줄이기 설정으로 실패했으며 해당 임시 계정도 삭제했다. 검증 브라우저에 no-preference를 명시한 재실행에서 통과했다.
+- `npm.cmd run build -- --configLoader runner`, `npm.cmd run lint` 통과. 이번 결과는 최초 상담 NDJSON 흐름에 한정하며 이전 체크포인트의 로그아웃·후속 질문·Docker 실행 등 미해결 항목 전체가 해결된 것은 아니다.
+- 프론트 preview를 `http://localhost:3000`에 실행해 사용자 확인을 준비했다.
+
+- 사용자 요청으로 `http://localhost:8080/v3/api-docs`를 직접 조회했다. 커밋 여부와 무관하게 현재 실행 서버 명세를 확인했다.
+- `POST /api/chat-rooms/ndjson`: `{ content }` 요청, 검증·저장 후 `completed.response`와 `completed.room` 반환.
+- `POST /api/legal-answers/ndjson`: `{ query }` 요청, 저장 없이 `completed.response` 반환.
+- 두 경로 모두 Access 쿠키, CSRF 헤더와 `Accept: application/x-ndjson` 필요. 이벤트는 progress/info/answer_delta/completed/error/heartbeat이며 info는 전체 교체, delta는 임시 누적, completed는 최종 결과로 교체한다.
+- 시작 후 오류는 HTTP 200의 error 이벤트로 전달된다. 임시 답변 폐기와 자동 재시도 금지가 필요하다. heartbeat는 10초 간격이다.
+- 현재 프론트 questionStore는 기존 JSON API를 사용하며 스트리밍 수신 구현은 없다. 다음 구현 시 fetch 스트림의 줄 단위 파싱과 기존 인증·CSRF 처리를 연결해야 한다.
+- 이번 확인은 실행 서버 OpenAPI 조회와 프론트 소스 대조다. 인증된 실제 AI 스트림 호출 및 프론트 구현 변경은 수행하지 않았다. 기존 중간 저장의 미해결 항목은 유지한다.
+
 기록일: 2026-10-23 (Asia/Seoul)
 
 > 후속 구현을 진행하다 사용자 요청으로 일시 중지했다. **현재 상태와 미해결 오류는 [중간 저장](checkpoint.md)이 최신**이다. 아래 조사 내용은 당시 원격 커밋 기준의 기록이며, 현재 실행 서버의 계약과 차이가 있다.

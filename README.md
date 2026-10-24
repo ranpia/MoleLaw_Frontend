@@ -2,6 +2,7 @@
 법률 API와 연계한 AI 기반 법률 조언 서비스.
 
 로컬 실행·Docker·API/브라우저 검증 방법은 [로컬 개발 안내](docs/local-development.md), 변경 현황은 [작업 현황과 계획](docs/frontend-plan.md)을 참고하세요.
+코드 배치와 역할은 [프로젝트 구조](docs/project-structure.md)를 참고하세요.
 
 - *이 README는 Frontend 중심입니다. 현재 참조하는 Backend 저장소는 https://github.com/ranpia/MoleLaw_backend 이며, 프론트 계약은 실행 중인 서버의 Swagger를 우선 확인합니다.*
 
