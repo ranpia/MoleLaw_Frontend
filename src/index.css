@@ -93,6 +93,12 @@ summary { cursor: pointer; }
 .button-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
 .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid #d7bfae; border-top-color: #760c0c; border-radius: 50%; margin-right: 8px; animation: spin 1s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
+.loading-dots { display: inline-flex; align-items: center; gap: 6px; margin-right: 12px; height: 24px; vertical-align: middle; }
+.loading-dots i { display: block; width: 7px; height: 7px; border-radius: 50%; background: #760c0c; animation: loading-bounce 1.4s ease-in-out infinite; }
+.loading-dots i:nth-child(2) { animation-delay: .18s; }
+.loading-dots i:nth-child(3) { animation-delay: .36s; }
+@keyframes loading-bounce { 0%, 60%, 100% { transform: translateY(2px); opacity: .5; } 30% { transform: translateY(-6px); opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .spinner { animation: none; } }
 .evidence-panel { flex: 0 0 300px; width: 300px; overflow: auto; border-left: 1px solid #e6d5c9; background: #fffaf6; padding: 30px 20px; }
 .evidence-panel h2 { font-size: 18px; }
 .evidence-panel > .muted { font-size: 12px; line-height: 1.7; }
@@ -135,4 +141,7 @@ summary { cursor: pointer; }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; }
+  /* Keep the explicitly requested loading indicator visible with gentler motion. */
+  .loading-dots i { animation-duration: 1.8s !important; animation-name: loading-bounce-gentle; }
 }
+@keyframes loading-bounce-gentle { 0%, 60%, 100% { transform: translateY(0); opacity: .6; } 30% { transform: translateY(-3px); opacity: 1; } }

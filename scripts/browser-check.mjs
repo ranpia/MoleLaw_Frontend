@@ -6,7 +6,7 @@ import { randomUUID } from 'node:crypto';
 
 // No browser package needed: isolated headless Chrome via the DevTools protocol.
 const mode = process.argv[2] || 'live';
-const origin = mode === 'simulation' ? 'http://localhost:5174' : 'http://localhost:5173';
+const origin = mode === 'simulation' ? 'http://localhost:5174' : 'http://localhost:3000';
 const directory = resolve('.artifacts.local', `browser-${mode}-${Date.now()}`);
 await mkdir(directory, { recursive: true });
 const chrome = spawn(process.env.CHROME_PATH || 'C:/Program Files/Google/Chrome/Application/chrome.exe', [
@@ -66,8 +66,9 @@ try {
   await send('Runtime.enable');
   await send('Page.enable');
   await send('Network.enable');
+  await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'no-preference' }] });
   await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 1000, deviceScaleFactor: 1, mobile: false });
-  if (mode === 'live') {
+  if (mode === 'live' || mode === 'ndjson') {
     await until(() => exists('.auth-card'), 'login screen');
     pass('real server unauthenticated login screen');
     await clickText('회원가입');
@@ -80,6 +81,61 @@ try {
     await until(() => exists('.welcome'), 'signup authenticated screen');
     accountCreated = true;
     pass('browser signup, CSRF and authenticated profile');
+    if (mode === 'ndjson') {
+      await value('#question', '민법 제2조의 신의성실 원칙을 법령 근거와 함께 간단히 설명해 주세요.');
+      await evaluate("document.querySelector('.composer').requestSubmit(); document.querySelector('.composer').requestSubmit()");
+      await until(() => exists('.loading-dots'), 'loading animation');
+      assert.equal(await evaluate("getComputedStyle(document.querySelector('.loading-dots i')).animationName"), 'loading-bounce');
+      pass('loading animation is active');
+      await until(() => responses.some((r) => r.path === '/api/chat-rooms/ndjson' && r.status === 200), 'NDJSON response', 60_000);
+      pass('browser NDJSON request accepted through Vite proxy');
+      let sawDraft = false;
+      let sawInfo = false;
+      let sawProgress = false;
+      await until(async () => {
+        const state = await evaluate(`({ loading: !!document.querySelector('.loading-dots'), draft: !!document.querySelector('.bot-message small'), info: [...document.querySelectorAll('summary')].some(el => el.textContent === '확인 중인 근거'), progress: document.querySelector('.pending-message')?.textContent, error: document.querySelector('.error-card')?.textContent })`);
+        sawDraft ||= state.draft;
+        sawInfo ||= state.info;
+        sawProgress ||= !!state.progress && !state.progress.includes('질문을 확인하고 있습니다');
+        if (state.error) return true;
+        return !state.loading;
+      }, 'real streamed answer completion', 1_200_000);
+      assert.ok(sawProgress, 'server progress rendered');
+      assert.ok(sawInfo, 'stream evidence rendered');
+      assert.ok(sawDraft, 'partial answer rendered');
+      assert.equal(await exists('.error-card'), false);
+      assert.ok((await evaluate("document.querySelector('.bot-message')?.textContent || ''")).length > 30);
+      assert.equal(requests.filter((r) => r.path === '/api/chat-rooms/ndjson').length, 1);
+      pass('progress, evidence, partial answer and final answer rendered; duplicate submission prevented');
+      const persisted = await evaluate(`(async () => {
+        const rooms = await (await fetch('/api/chat-rooms')).json();
+        if (rooms.length !== 1) throw Error('Expected one disposable room');
+        const messages = await (await fetch('/api/chat-rooms/' + rooms[0].id + '/messages')).json();
+        const evidence = await (await fetch('/api/chat-rooms/' + rooms[0].id + '/evidence')).json();
+        return { bot: messages.some(m => m.sender === 'BOT' && m.content.length > 0), evidence: evidence.length };
+      })()`);
+      assert.ok(persisted.bot);
+      assert.ok(persisted.evidence > 0);
+      await send('Page.reload');
+      await until(() => exists('.room-select'), 'saved room after reload');
+      await evaluate("document.querySelector('.room-select').click()");
+      await until(() => exists('.bot-message'), 'saved answer restored');
+      pass('final answer and evidence persisted; conversation restored after reload');
+      await value('#question', '방금 설명한 원칙을 한 문장으로 요약해 주세요.');
+      await evaluate("document.querySelector('.composer').requestSubmit()");
+      await until(() => requests.some(r => /\/messages\/ndjson$/.test(r.path)), 'follow-up NDJSON request');
+      await until(async () => !(await exists('.loading-dots')), 'follow-up completion', 1_200_000);
+      assert.equal(await exists('.error-card'), false);
+      assert.equal(await evaluate("document.querySelectorAll('.bot-message').length"), 2);
+      const follow = requests.filter(r => /\/messages\/ndjson$/.test(r.path));
+      assert.equal(follow.length, 1);
+      assert.ok(responses.some(r => /\/messages\/ndjson$/.test(r.path) && r.status === 200));
+      await send('Page.reload');
+      await until(() => exists('.room-select'), 'room after follow-up reload');
+      await evaluate("document.querySelector('.room-select').click()");
+      await until(() => evaluate("document.querySelectorAll('.bot-message').length === 2"), 'persisted follow-up');
+      pass('real follow-up NDJSON answer completed and restored from history');
+    } else {
     await send('Page.reload');
     await until(() => exists('.welcome'), 'session after reload');
     pass('HttpOnly cookie session survives reload');
@@ -96,6 +152,7 @@ try {
     await until(() => evaluate("document.querySelector('.profile-name')?.textContent === '이름변경검증'"), 'nickname response');
     pass('browser nickname update and profile refresh');
     await clickText('×');
+    }
   } else {
     await until(() => exists('.room-select'), 'fixture room list');
     assert.equal(await evaluate("document.querySelectorAll('.room-select').length"), 20);

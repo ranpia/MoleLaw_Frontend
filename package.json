@@ -9,6 +9,8 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "verify:api": "node scripts/verify-local-api.mjs",
+    "verify:stream": "node scripts/verify-stream.mjs",
+    "verify:ndjson": "node scripts/browser-check.mjs ndjson",
     "verify:browser": "node scripts/browser-check.mjs live",
     "verify:simulation": "node scripts/browser-check.mjs simulation"
   },

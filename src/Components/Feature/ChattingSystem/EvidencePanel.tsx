@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import { api, errorMessage } from "../../../api/client";
+import { errorMessage } from "../../../api/client";
+import { chatApi } from "../../../api/chat";
 import { useDataStore } from "../../../store/storeIndex";
-import type { EvidenceDetail } from "../../../store/types";
+import type { EvidenceDetail } from "../../../api/types";
 
 function sourceUrl(value: string) {
   try { const url = new URL(value); return ["http:", "https:"].includes(url.protocol) && !url.username && !url.password ? url.href : undefined; }
@@ -22,7 +23,7 @@ export default function EvidencePanel({ roomId, activeId, onSelect }: { roomId: 
     if (details[activeId]) return;
     const controller = new AbortController();
     setLoading(true); setError(null);
-    void api.get<EvidenceDetail>(`/chat-rooms/${roomId}/evidence/${activeId}`, { signal: controller.signal }).then(({ data }) => {
+    void chatApi.evidenceDetail(roomId, activeId, controller.signal).then((data) => {
       if (!controller.signal.aborted) setDetails((old) => ({ ...old, [activeId]: data }));
     }).catch((reason: unknown) => { if (!controller.signal.aborted) setError(errorMessage(reason, "근거 본문을 불러오지 못했습니다.")); })
       .finally(() => { if (!controller.signal.aborted) setLoading(false); });

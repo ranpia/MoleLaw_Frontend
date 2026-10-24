@@ -1,5 +1,5 @@
 import axios, { type InternalAxiosRequestConfig } from "axios";
-import { API_BASE_URL } from "../store/constants";
+import { API_BASE_URL } from "./config";
 
 export interface ApiEnvelope<T> { success: boolean; data: T }
 interface CsrfResponse { token: string; headerName: string }
@@ -19,7 +19,7 @@ export function clearSession() {
   window.dispatchEvent(new Event("molelaw:session-cleared"));
 }
 export function invalidateCsrf() { csrf = undefined; }
-async function getCsrf() {
+export async function getCsrf() {
   csrf ??= transport.get<CsrfResponse>("/auth/csrf").then(({ data }) => {
     if (!data.token || data.headerName !== "X-XSRF-TOKEN") throw new Error("CSRF 응답을 확인할 수 없습니다.");
     return data;

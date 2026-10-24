@@ -1,9 +1,13 @@
 import { create } from "zustand";
-import { api, errorMessage, getSessionVersion } from "../../api/client";
+import { errorMessage, getSessionVersion } from "../../api/client";
 import { validateQuestion } from "../../api/validation";
-import type { Message, QuestionStore } from "../types";
+import type { QuestionStore } from "../types";
 import { useDataStore } from "../data/dataStore";
 import { useMessageStore } from "../data/messageStore";
+import { streamFirstAnswer, streamFollowUp, type AnswerEvent } from "../../api/stream";
+import { createDraftWriter } from "./draftWriter";
+
+let activeStream: AbortController | undefined;
 
 export const useQuestionStore = create<QuestionStore>((set, get) => {
   const send = async (content: string, roomId: number | null, allowCaseSearch = false) => {
@@ -12,17 +16,29 @@ export const useQuestionStore = create<QuestionStore>((set, get) => {
     if (invalid) { set({ error: invalid }); return false; }
     const version = getSessionVersion();
     const previous = useMessageStore.getState().messages;
-    set({ loading: true, error: null });
+    set({ loading: true, error: null, progress: "질문을 확인하고 있습니다…", draft: "", streamInfo: "" });
     useMessageStore.getState().addMessage({ sender: "USER", content });
+    const controller = new AbortController();
+    activeStream = controller;
+    const writer = createDraftWriter((draft) => { if (version === getSessionVersion()) set({ draft }); }, controller.signal);
+    const onEvent = (event: AnswerEvent) => {
+      if (version !== getSessionVersion()) return;
+      if (event.type === "progress") set({ progress: event.message || "답변을 준비하고 있습니다…" });
+      if (event.type === "info") set({ streamInfo: event.info || "" });
+      if (event.type === "answer_delta") writer.append(event.delta || "");
+      if (event.type === "completed") set({ progress: "최종 답변을 정리하고 있습니다…" });
+    };
     try {
       if (roomId === null) {
-        const { data } = await api.post<{ id: number; messages: Message[] }>("/chat-rooms", { content }, { timeout: 20 * 60_000 });
+        const data = await streamFirstAnswer(content, onEvent, controller.signal);
+        await writer.drain();
         if (version !== getSessionVersion()) return false;
         useDataStore.getState().setSelectedRoomID(data.id);
         useMessageStore.getState().setMessages(data.messages);
         await useDataStore.getState().loadEvidence(data.id);
       } else {
-        const { data } = await api.post<Message>(`/chat-rooms/${roomId}/messages`, { content, allowCaseSearch }, { timeout: 20 * 60_000 });
+        const data = await streamFollowUp(roomId, content, allowCaseSearch, onEvent, controller.signal);
+        await writer.drain();
         if (version !== getSessionVersion()) return false;
         useMessageStore.getState().addMessage(data);
         await useDataStore.getState().loadEvidence(roomId);
@@ -35,10 +51,10 @@ export const useQuestionStore = create<QuestionStore>((set, get) => {
         set({ error: errorMessage(error, "답변을 생성하지 못했습니다. 과거 상담이라면 새 상담에서 다시 시작해 주세요.") });
       }
       return false;
-    } finally { if (version === getSessionVersion()) set({ loading: false }); }
+    } finally { writer.dispose(); if (version === getSessionVersion()) { activeStream = undefined; set({ loading: false, progress: "", draft: "", streamInfo: "" }); } }
   };
   return {
-    loading: false, error: null, clearError: () => set({ error: null }),
+    loading: false, error: null, progress: "", draft: "", streamInfo: "", clearError: () => set({ error: null }),
     askQuestion: (content) => send(content, null),
     continueQuestion: (content, allowCaseSearch = false) => {
       const id = useDataStore.getState().selectedChatRoomID;
@@ -47,4 +63,8 @@ export const useQuestionStore = create<QuestionStore>((set, get) => {
     },
   };
 });
-window.addEventListener("molelaw:session-cleared", () => useQuestionStore.setState({ loading: false, error: null }));
+window.addEventListener("molelaw:session-cleared", () => {
+  activeStream?.abort();
+  activeStream = undefined;
+  useQuestionStore.setState({ loading: false, error: null, progress: "", draft: "", streamInfo: "" });
+});

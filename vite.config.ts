@@ -8,5 +8,5 @@ export default defineConfig(({ mode }) => {
   const proxy = Object.fromEntries(['/api', '/oauth2', '/login/oauth2'].map((path) => [path, {
     target, changeOrigin: true, timeout: 1_200_000, proxyTimeout: 1_200_000,
   }]));
-  return { plugins: [react()], server: { host: '0.0.0.0', port: 5173, strictPort: true, proxy }, preview: { proxy } };
+  return { plugins: [react()], server: { host: '0.0.0.0', port: 3000, strictPort: true, proxy }, preview: { port: 3000, strictPort: true, proxy } };
 });

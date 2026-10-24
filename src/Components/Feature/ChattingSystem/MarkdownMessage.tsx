@@ -1,6 +1,6 @@
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import type { Evidence } from "../../../store/types";
+import type { Evidence } from "../../../api/types";
 
 export default function MarkdownMessage({ content, evidence, onEvidence }: { content: string; evidence: Evidence[]; onEvidence: (id: string) => void }) {
   const formatted = content.replace(/\[\[([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\]\]/g, (original, id: string) => {

@@ -1,8 +1,9 @@
 import { create } from "zustand";
-import { api, clearSession, errorMessage, getSessionVersion, invalidateCsrf, renewSession, type ApiEnvelope } from "../../api/client";
+import { clearSession, errorMessage, getSessionVersion, invalidateCsrf, renewSession } from "../../api/client";
+import { authApi } from "../../api/auth";
 import { validatePassword } from "../../api/validation";
-import { OAUTH2_URL } from "../constants";
-import type { AuthStore, User } from "../types";
+import { OAUTH2_URL } from "../../api/config";
+import type { AuthStore } from "../types";
 
 let initialization: Promise<boolean> | undefined;
 export const useAuthStore = create<AuthStore>((set, get) => ({
@@ -12,9 +13,9 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
     const version = getSessionVersion();
     initialization = (async () => {
       try {
-        const { data } = await api.get<ApiEnvelope<User>>("/users/me");
+        const user = await authApi.profile();
         if (version !== getSessionVersion()) return false;
-        set({ user: data.data, isAuthenticated: true, error: null });
+        set({ user, isAuthenticated: true, error: null });
         return true;
       } catch (error) {
         if (version === getSessionVersion()) set({ user: null, isAuthenticated: false, error: errorMessage(error) });
@@ -31,7 +32,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
     if (get().isLoading) return "로그인 처리 중입니다.";
     set({ isLoading: true, error: null });
     try {
-      await api.post("/auth/login", { email: email.trim(), password });
+      await authApi.login(email.trim(), password);
       invalidateCsrf();
       return await get().checkAuthStatus() ? "로그인 성공" : "로그인 후 사용자 정보를 확인하지 못했습니다.";
     } catch (error) { const message = errorMessage(error, "로그인에 실패했습니다."); set({ error: message }); return message; }
@@ -43,7 +44,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
     if (nickname.trim().length < 2 || nickname.trim().length > 50) return "닉네임은 2~50자로 입력해 주세요.";
     set({ isLoading: true, error: null });
     try {
-      await api.post("/auth/signup", { email: email.trim(), password, nickname: nickname.trim() });
+      await authApi.signup(email.trim(), password, nickname.trim());
       invalidateCsrf();
       return await get().checkAuthStatus() ? "가입 성공" : "가입은 완료했지만 사용자 정보를 확인하지 못했습니다. 로그인해 주세요.";
     } catch (error) { const message = errorMessage(error, "가입에 실패했습니다."); set({ error: message }); return message; }
@@ -54,14 +55,14 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
   logout: async () => {
     if (get().isLoading) return false;
     set({ isLoading: true, error: null });
-    try { await api.post("/auth/logout"); clearSession(); return true; }
+    try { await authApi.logout(); clearSession(); return true; }
     catch (error) { set({ error: errorMessage(error, "로그아웃에 실패했습니다.") }); return false; }
     finally { set({ isLoading: false }); }
   },
   quit: async () => {
     if (get().isLoading) return false;
     set({ isLoading: true, error: null });
-    try { await api.delete("/users/me"); clearSession(); return true; }
+    try { await authApi.remove(); clearSession(); return true; }
     catch (error) { set({ error: errorMessage(error, "탈퇴에 실패했습니다.") }); return false; }
     finally { set({ isLoading: false }); }
   },
@@ -70,7 +71,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
     if (get().isLoading) return "변경 처리 중입니다.";
     set({ isLoading: true });
     try {
-      await api.patch("/users/me/nickname", { newNickname: nickname.trim() });
+      await authApi.nickname(nickname.trim());
       await get().checkAuthStatus();
       return "닉네임 변경에 성공하였습니다.";
     } catch (error) { return errorMessage(error, "닉네임 변경에 실패했습니다."); }
@@ -81,7 +82,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
     if (get().isLoading) return "변경 처리 중입니다.";
     set({ isLoading: true });
     try {
-      await api.patch("/users/me/password", { newPassword: password });
+      await authApi.password(password);
       clearSession();
       return "비밀번호를 변경했습니다. 새 비밀번호로 다시 로그인해 주세요.";
     } catch (error) { return errorMessage(error, "비밀번호 변경에 실패했습니다."); }
