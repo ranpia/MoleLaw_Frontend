@@ -62,7 +62,7 @@ export default function MainView() {
             {selectedChatRoomID !== null && <button disabled={loading || roomLoading} onClick={() => { newChat(); clearError(); }}>새 상담에서 시작하기</button>}</section>}
         </div>
         <footer className="chat-footer">
-          <ChattingBar key={selectedChatRoomID ?? "new"} disabled={loading || roomLoading} onSubmit={send} onEdit={clearError} />
+          <ChattingBar key={selectedChatRoomID ?? "new"} suggestInitial={selectedChatRoomID === null} disabled={loading || roomLoading} onSubmit={send} onEdit={clearError} />
         </footer>
       </main>
       {selectedChatRoomID !== null && <EvidencePanel key={selectedChatRoomID} roomId={selectedChatRoomID} activeId={activeEvidence} onSelect={setActiveEvidence} />}

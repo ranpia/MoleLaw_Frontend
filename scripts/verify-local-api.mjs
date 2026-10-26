@@ -58,6 +58,19 @@ try {
   check('profile envelope', await request('GET', '/users/me'), 200, (d) => assert.equal(d.data.email, email));
   check('blank question rejected before AI', await request('POST', '/chat-rooms', { content: ' ' }), 400, (d) => assert.equal(d.error.code, 'INVALID_REQUEST'));
   check('room list array', await request('GET', '/chat-rooms?page=0&size=20'), 200, (d) => assert.deepEqual(d, []));
+  check('blank suggestion rejected', await request('POST', '/legal-answers/suggestions', { query: ' ' }), 400);
+  const longDraft = '가'.repeat(1990);
+  check('long draft suggestion preserves original', await request('POST', '/legal-answers/suggestions', { query: longDraft }), 200, d => {
+    assert.equal(d.suggestedQuestions.length, 1); assert.equal(d.suggestedQuestions[0].question, longDraft);
+  });
+  if (process.argv.includes('--suggestions')) {
+    const query = '시공 하자와 관리 소홀이 함께 사고를 일으킨 경우 책임이 궁금합니다.';
+    check('real model initial question suggestions', await request('POST', '/legal-answers/suggestions', { query }), 200, d => {
+      assert.ok(d.suggestedQuestions.length >= 1 && d.suggestedQuestions.length <= 3);
+      for (const item of d.suggestedQuestions) { assert.ok(item.id && item.label); assert.ok(item.question.includes(query)); assert.ok([...item.question].length <= 2000); }
+    });
+  }
+  check('suggestions do not create rooms', await request('GET', '/chat-rooms?page=0&size=20'), 200, d => assert.deepEqual(d, []));
   check('evidence ownership / missing room', await request('GET', '/chat-rooms/9223372036854775807/evidence'), 404);
   check('nickname update empty body', await request('PATCH', '/users/me/nickname', { newNickname: '프론트검증변경' }), 200, (d) => assert.equal(d, ''));
   check('updated profile', await request('GET', '/users/me'), 200, (d) => assert.equal(d.data.nickname, '프론트검증변경'));

@@ -4,6 +4,7 @@ export interface Message {
 }
 export interface Chatroom { id: number; title: string; preview: string; createdAt: string }
 export interface CreatedRoom { id: number; messages: Message[] }
+export interface SuggestedQuestion { id: string; label: string; question: string }
 export interface Evidence {
   id: string; kind: string; sourceId: string; title: string; sourceUrl: string;
   lawId?: string | null; effectiveDate?: string | null;

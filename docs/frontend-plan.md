@@ -98,3 +98,13 @@ stream 병합 후 lint, 프로덕션 build(configLoader runner), verify:stream �
 프론트 원격 dev 확인 결과 새 커밋은 없었으며, 실행 서버 OpenAPI에서 PATCH /api/chat-rooms/{roomId}/title과 필수 currentPassword를 확인했다. 사이드바 이름 변경·저장·취소와 Unicode 1~255자 검증, 성공 후 목록 반영을 추가했다. 비밀번호 변경은 현재 비밀번호를 공백 제거 없이 전송하고 실패 시 로그인 상태를 유지하며 성공 시 세션을 초기화한다.
 
 검증: 실제 서버 API 23개 통과(현재 비밀번호 누락·불일치 거절, 불일치 후 Refresh 유지, 정상 변경·새 비밀번호 로그인, 없는 상담방 이름 변경 404). 임시 계정 삭제 204 확인. 실제 상담방 이름 변경 성공은 AI 비용을 피하기 위해 실행하지 않았으며 선택적 consultation 검사에 추가했다. Postman simulation + 실제 Chrome에서는 제목 취소·이모지 길이 제한·204 저장·새로고침 유지와 현재 비밀번호 오류·정상 변경 후 로그인 화면을 확인했다. backend 멤버의 실제 PATCH 요청 이벤트도 확인했다. 모의 결과는 실서버 이름 변경 성공을 보장하지 않는다. 호스트 Vite의 Chrome Cookies 감시 EBUSY를 피하도록 로컬 산출물을 감시에서 제외했다.
+
+## 최초 질문 추천 실험 — 2026-10-26
+
+브랜치: `experiment/initial-question-suggestions` (`dev`에서 분리). 실행 서버 OpenAPI의 `POST /api/legal-answers/suggestions`를 기준으로 초안 `{ query }` → `suggestedQuestions` 1~3개를 연결했다. 추천은 명시적으로 요청하며 선택한 `question`을 기존 최초 NDJSON의 `content`로 전송한다. 원문 바로 전송과 후속 NDJSON은 유지하고 추천 선택으로 판례 검색에 동의하지 않는다. 추천 조회 자체는 방·메시지를 만들지 않는다.
+
+입력 수정·추천 취소·컴포넌트 해제 시 요청을 중단하고 늦은 응답은 버린다. 추천 오류·응답 계약 오류는 입력을 보존하며 원문으로 계속 질문할 수 있다. 추천을 선택해 상담이 실패하면 원문과 추천을 유지한다.
+
+검증: lint/build/verify:stream 통과. 실제 서버 API 27개 통과(실제 모델 추천 1회, 원문 보존, 긴 초안 원문 반환, 추천 후 방 목록 빈 배열, 기존 인증·비밀번호 검사와 임시 계정 삭제 포함). 실제 최초·후속 AI 상담은 이번에 반복하지 않았다. Postman simulation + Chrome 7개 검사 통과: 명시적·중복 방지 추천, 입력 수정 후 늦은 응답 무시, 모바일 너비, 선택 문장 최초 NDJSON 전송과 동의 없음, 후속 NDJSON 우회, 500 후 원문 전송, JS 예외 없음. backend 멤버의 추천·최초·후속 요청 이벤트 확인. 산출물: `.artifacts.local/browser-suggestions-1793002666257/`.
+
+운영 중인 프론트는 실험 브랜치로 다시 빌드하며 5173 포트를 유지한다. dev에는 병합하지 않는다.

@@ -54,6 +54,9 @@ summary { cursor: pointer; }
 .room-rename { flex: 0 0 30px; padding: 6px; }
 .room-rename-form { width: 100%; min-width: 0; padding: 6px; }
 .room-rename-form input { width: 100%; min-width: 0; }
+.question-suggestions { max-height: min(45vh, 420px); overflow: auto; padding-top: 12px; }
+.question-suggestion { border: 1px solid #ddd; border-radius: 8px; margin: 10px 0; padding: 12px; }
+.question-suggestion p { white-space: pre-wrap; overflow-wrap: anywhere; }
 .sidebar-error { font-size: 12px; padding: 12px 0; line-height: 1.6; }
 .sidebar-error button { margin-top: 8px; }
 .sidebar-bottom { display: flex; flex-direction: column; align-items: stretch; gap: 8px; padding-top: 18px; border-top: 1px solid #ffffff30; }

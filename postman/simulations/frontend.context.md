@@ -1,4 +1,4 @@
-﻿# MoleLaw frontend simulation context
+# MoleLaw frontend simulation context
 
 Updated: 2026-10-26. Uses the local backend fixture derived from the running server OpenAPI; no published owner mock was pulled (CLI signed out).
 
@@ -17,11 +17,12 @@ Run the frontend against the backend member in `frontend.sim.yaml`. Account/titl
 
 - Observed 2026-10-26: each run must start with fresh fixture state because the account check changes its password. Restart the simulation before repeating.
 - Observed 2026-10-26: the account check proves browser/client behavior, not server password hashing, ownership enforcement or persistence. Real password behavior is covered separately by `scripts/verify-local-api.mjs`; successful real title rename requires its optional consultation flow, which incurs AI cost.
-- The older JSON-chat fixture still needs NDJSON support before running the full chat simulation check.
+- The suggestions check includes minimal first/follow-up NDJSON completion fixtures. These do not model retrieval, citation verification or arbitrary stream failures; the older full chat simulation check has not been rerun.
 
 ## Observations
 
 <!-- begin:observations -->
+- 2026-10-26: suggestions browser check passed; backend served explicit recommendation calls, first/follow-up NDJSON and the controlled recommendation 500. Late recommendation cancellation and raw-question fallback passed. No member was silent.
 - 2026-10-26: account browser check passed. The sole member `backend` served profile, list, CSRF, title update/reload and failed/successful password changes; no member was silent. No actual AI calls or real user accounts were used.
 <!-- end:observations -->
 

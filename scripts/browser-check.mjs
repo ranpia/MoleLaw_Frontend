@@ -6,7 +6,7 @@ import { randomUUID } from 'node:crypto';
 
 // No browser package needed: isolated headless Chrome via the DevTools protocol.
 const mode = process.argv[2] || 'live';
-const origin = ['simulation', 'account'].includes(mode) ? 'http://localhost:5174' : 'http://localhost:5173';
+const origin = ['simulation', 'account', 'suggestions'].includes(mode) ? 'http://localhost:5174' : 'http://localhost:5173';
 const directory = resolve('.artifacts.local', `browser-${mode}-${Date.now()}`);
 await mkdir(directory, { recursive: true });
 const chrome = spawn(process.env.CHROME_PATH || 'C:/Program Files/Google/Chrome/Application/chrome.exe', [
@@ -68,7 +68,58 @@ try {
   await send('Network.enable');
   await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'no-preference' }] });
   await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 1000, deviceScaleFactor: 1, mobile: false });
-  if (mode === 'account') {
+  if (mode === 'suggestions') {
+    await until(() => exists('.welcome'), 'new consultation');
+    await value('#question', '사고 책임을 확인하고 싶습니다.');
+    await clickText('질문 다듬기');
+    await clickText('질문 다듬기');
+    await until(() => exists('.question-suggestion'), 'suggestions');
+    assert.equal(requests.filter(r => r.path === '/api/legal-answers/suggestions').length, 1);
+    assert.equal(requests.filter(r => r.path === '/api/chat-rooms/ndjson').length, 0);
+    assert.equal(await evaluate("document.querySelectorAll('.user-message').length"), 0);
+    pass('explicit suggestion request only; duplicate prevented; no consultation started');
+    await send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
+    await pause(150);
+    assert.equal(await evaluate('document.documentElement.scrollWidth <= window.innerWidth'), true);
+    await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 1000, deviceScaleFactor: 1, mobile: false });
+    await value('#question', '지연 추천 검증');
+    assert.equal(await exists('.question-suggestion'), false);
+    await clickText('질문 다듬기');
+    await value('#question', '수정한 원문');
+    await pause(1000);
+    assert.equal(await exists('.question-suggestion'), false);
+    assert.equal(await evaluate("document.querySelector('#question').value"), '수정한 원문');
+    pass('editing cancels pending suggestion and discards stale response; mobile suggestions fit');
+    await clickText('질문 다듬기');
+    await until(() => exists('.question-suggestion'), 'updated suggestions');
+    const selected = await evaluate("document.querySelector('.question-suggestion p').textContent");
+    await clickText('이 질문으로 상담 시작');
+    await until(() => exists('.bot-message'), 'chosen question answer');
+    await until(() => evaluate("!document.querySelector('#question').disabled"), 'stream completion');
+    let posts = await (await fetch('http://127.0.0.1:4900/backend/__fixture/requests')).json();
+    assert.equal(posts.length, 1); assert.equal(posts[0].content, selected);
+    assert.equal(posts[0].allowCaseSearch, undefined);
+    assert.equal(await exists('.question-suggestions'), false);
+    assert.equal(await evaluate("[...document.querySelectorAll('button')].some(b=>b.textContent==='질문 다듬기')"), false);
+    pass('selected question sent as content through first NDJSON; no search consent implied');
+    await value('#question', '후속 질문입니다.');
+    await evaluate("document.querySelector('.composer').requestSubmit()");
+    await until(() => evaluate("document.querySelectorAll('.bot-message').length === 2 && !document.querySelector('#question').disabled"), 'follow-up answer');
+    posts = await (await fetch('http://127.0.0.1:4900/backend/__fixture/requests')).json();
+    assert.equal(posts[1].path, '/api/chat-rooms/42/messages/ndjson');
+    assert.equal(posts[1].allowCaseSearch, false);
+    pass('follow-up bypasses suggestions and keeps consent false');
+    await clickText('＋ 새 상담');
+    await value('#question', '추천 실패 검증');
+    await clickText('질문 다듬기');
+    await until(() => exists('.composer [role=alert]'), 'suggestion failure');
+    assert.equal(await evaluate("document.querySelector('#question').value"), '추천 실패 검증');
+    await clickText('원문으로 질문');
+    await until(() => exists('.bot-message'), 'original question fallback');
+    posts = await (await fetch('http://127.0.0.1:4900/backend/__fixture/requests')).json();
+    assert.equal(posts.length, 3); assert.equal(posts[2].content, '추천 실패 검증');
+    pass('suggestion failure retains draft and allows original question');
+  } else if (mode === 'account') {
     await until(() => exists('.room-select'), 'fixture room list');
     const originalTitle = await evaluate("document.querySelector('.room-select').textContent");
     await evaluate("document.querySelector('.room-rename').click()");

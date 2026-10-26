@@ -43,6 +43,27 @@ http.createServer(async (req, res) => {
   if (path === '/api/chat-rooms/42/messages' && req.method === 'GET') return send(200, state.messages);
   if (path === '/api/chat-rooms/42/evidence' && req.method === 'GET') return send(200, [evidence]);
   if (path === `/api/chat-rooms/42/evidence/${uuid}` && req.method === 'GET') return send(200, { evidence, content: '<b>원문 표기</b> 권리의 행사와 의무의 이행은 신의에 좇아 성실히 하여야 한다.', caseInfo: null });
+  if (path === '/api/legal-answers/suggestions' && req.method === 'POST') {
+    if (req.headers['x-xsrf-token'] !== 'fixture-token') return send(403);
+    const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+    if (typeof body?.query !== 'string' || !body.query.trim() || [...body.query].length > 2000) return send(400, { success: false, error: { code: 'INVALID_REQUEST', message: '잘못된 요청입니다.' } });
+    if (body.query === '추천 실패 검증') return send(500, { success: false, error: { code: 'GPT_API_FAILURE', message: '질문을 다듬지 못했습니다.' } });
+    const suggestedQuestions = [{ id: 'suggestion-1', label: '책임 판단 기준', question: `${body.query}\n\n일반적인 책임 판단 기준을 설명해 주세요.` }, { id: 'suggestion-2', label: '확인할 자료', question: `${body.query}\n\n먼저 확인할 자료를 알려 주세요.` }];
+    if ([...body.query].length > 1968) return send(200, { suggestedQuestions: [{ id: 'original', label: '원문으로 질문', question: body.query }] });
+    return setTimeout(() => send(200, { suggestedQuestions }), body.query === '지연 추천 검증' ? 800 : 150);
+  }
+  if (req.method === 'POST' && (path === '/api/chat-rooms/ndjson' || path === '/api/chat-rooms/42/messages/ndjson')) {
+    if (req.headers['x-xsrf-token'] !== 'fixture-token') return send(403);
+    const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+    state.posts.push({ path, content: body.content, allowCaseSearch: body.allowCaseSearch });
+    const answer = bot('근거를 확인한 답변입니다.');
+    if (path === '/api/chat-rooms/ndjson') state.messages = [{ sender: 'USER', content: body.content }, answer];
+    else state.messages.push({ sender: 'USER', content: body.content }, answer);
+    await pm.state.set('molelaw-fixture', state);
+    res.writeHead(200, { 'Content-Type': 'application/x-ndjson' });
+    res.write(JSON.stringify({ type: 'answer_delta', delta: answer.content }) + '\n');
+    return res.end(JSON.stringify({ type: 'completed', ...(path === '/api/chat-rooms/ndjson' ? { room: { id: 42, messages: state.messages } } : { messageResult: answer }) }) + '\n');
+  }
   if (req.method === 'POST' && (path === '/api/chat-rooms' || path === '/api/chat-rooms/42/messages')) {
     if (req.headers['x-xsrf-token'] !== 'fixture-token') return send(403);
     const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
