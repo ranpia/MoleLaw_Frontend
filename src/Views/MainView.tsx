@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { useAuthStore, useDataStore, useMessageStore, useQuestionStore } from "../store/storeIndex";
 import SideBar from "../Components/Layout/SideBar";
 import ChattingBar from "../Components/Feature/ChattingSystem/ChattingBar";
@@ -13,9 +13,21 @@ export default function MainView() {
   const { user } = useAuthStore();
   const [activeEvidence, setActiveEvidence] = useState<string | null>(null);
   const [declinedAt, setDeclinedAt] = useState<string | null>(null);
-  const end = useRef<HTMLDivElement>(null);
-  useEffect(() => { end.current?.scrollIntoView({ behavior: "smooth", block: "end" }); }, [messages, loading, draft, progress]);
-  const send = (content: string, allowCaseSearch = false) => selectedChatRoomID === null ? askQuestion(content) : continueQuestion(content, allowCaseSearch);
+  const conversation = useRef<HTMLDivElement>(null);
+  const followAnswer = useRef(true);
+  const lastScrollTop = useRef(0);
+  useLayoutEffect(() => {
+    if (roomLoading) followAnswer.current = true;
+    const element = conversation.current;
+    if (element && followAnswer.current) {
+      element.scrollTop = element.scrollHeight;
+      lastScrollTop.current = element.scrollTop;
+    }
+  }, [messages, loading, roomLoading, draft, progress, streamInfo, error]);
+  const send = (content: string, allowCaseSearch = false) => {
+    followAnswer.current = true;
+    return selectedChatRoomID === null ? askQuestion(content) : continueQuestion(content, allowCaseSearch);
+  };
   const last = messages[messages.length - 1];
   const consentKey = `${selectedChatRoomID}:${messages.length}`;
   const consent = last?.sender === "BOT" && last.caseSearchRequested && declinedAt !== consentKey;
@@ -25,7 +37,12 @@ export default function MainView() {
       <main className="chat-main">
         <header className="chat-header"><div><span className="eyebrow">법률 상담</span><h1>MoleLaw</h1></div>
           <button disabled={loading || roomLoading} onClick={() => { newChat(); clearError(); }}>새 상담</button></header>
-        <div className="conversation" aria-busy={loading || roomLoading}>
+        <div ref={conversation} className="conversation" aria-busy={loading || roomLoading} onScroll={(event) => {
+          const element = event.currentTarget;
+          if (element.scrollTop < lastScrollTop.current) followAnswer.current = false;
+          else if (element.scrollHeight - element.clientHeight - element.scrollTop <= 48) followAnswer.current = true;
+          lastScrollTop.current = element.scrollTop;
+        }}>
           {!messages.length && <div className="welcome">
             <img src="/PointCircle.svg" alt="" /><h2>{user?.nickname}님,<br />어떤 고민이 있으신가요?</h2>
             <p>상황을 구체적으로 적어주시면 관련 법령과 근거를 함께 살펴봅니다.</p>
@@ -43,7 +60,6 @@ export default function MainView() {
           {error && <section className="error-card" role="alert"><p>{error}</p>
             <small>입력한 질문은 아래에 유지됩니다. 응답을 받지 못했다면 상담 기록을 먼저 확인해 주세요.</small>
             {selectedChatRoomID !== null && <button disabled={loading || roomLoading} onClick={() => { newChat(); clearError(); }}>새 상담에서 시작하기</button>}</section>}
-          <div ref={end} />
         </div>
         <footer className="chat-footer">
           <ChattingBar key={selectedChatRoomID ?? "new"} disabled={loading || roomLoading} onSubmit={send} onEdit={clearError} />
