@@ -11,6 +11,7 @@ export interface DataStore {
   getChatRoom: (more?: boolean) => Promise<void>;
   getChatRoomMessage: (id: number) => Promise<boolean>;
   deleteChatroom: (id: number) => Promise<boolean>;
+  renameChatroom: (id: number, title: string) => Promise<boolean>;
   setSelectedRoomID: (id: number | null) => void;
   loadEvidence: (id: number) => Promise<void>; newChat: () => void;
 }
@@ -29,5 +30,5 @@ export interface AuthStore {
   LocalLogin: (email: string, password: string) => Promise<string>;
   LocalSignUp: (email: string, password: string, nickname: string) => Promise<string>;
   changeNickname: (nickname: string) => Promise<string>;
-  changePassword: (password: string) => Promise<string>;
+  changePassword: (currentPassword: string, password: string) => Promise<string>;
 }

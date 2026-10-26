@@ -1,4 +1,4 @@
-/* Contract fixture based on localhost:8080/v3/api-docs (2026-10-23).
+/* Contract fixture based on localhost:8080/v3/api-docs (2026-10-23; title/password updated 2026-10-26).
  * Used only for frontend paths with expensive AI calls and controlled failures.
  * No owner mock was pulled: Postman CLI is signed out.
  */
@@ -14,6 +14,28 @@ http.createServer(async (req, res) => {
   if (!state) { state = { messages: [{ sender: 'USER', content: '신의성실 원칙을 설명해 주세요.' }, bot(`신의에 좇아 성실히 이행해야 합니다. [[${uuid}]]`, true)], rooms: [{ id: 42, title: '신의성실 상담', preview: '신의성실 원칙', createdAt: '2026-10-23T07:00:00' }, ...Array.from({ length: 20 }, (_, index) => ({ id: index + 43, title: `이전 상담 ${index + 1}`, preview: '페이지 처리 검증', createdAt: '2026-10-22T07:00:00' }))], posts: [] }; await pm.state.set('molelaw-fixture', state); }
   if (path === '/api/auth/csrf' && req.method === 'GET') { res.setHeader('Set-Cookie', 'XSRF-TOKEN=fixture-token; Path=/; SameSite=Lax'); return send(200, { token: 'fixture-token', headerName: 'X-XSRF-TOKEN' }); }
   if (path === '/api/users/me' && req.method === 'GET') return send(200, { success: true, data: { email: 'fixture@example.com', nickname: '검증사용자' } });
+  if (req.method === 'PATCH') {
+    if (req.headers['x-xsrf-token'] !== 'fixture-token') return send(403);
+    const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+    const fail = (status, code, message) => send(status, { success: false, error: { status, code, message } });
+    const titleRoute = /^\/api\/chat-rooms\/(\d+)\/title$/.exec(path);
+    if (titleRoute) {
+      const title = typeof body?.title === 'string' ? body.title.trim() : '';
+      if (!title || [...title].length > 255) return fail(400, 'INVALID_REQUEST', '잘못된 요청입니다.');
+      const room = state.rooms.find(room => room.id === Number(titleRoute[1]));
+      if (!room) return fail(404, 'CHATROOM_NOT_FOUND', '채팅방을 찾을 수 없습니다.');
+      room.title = title;
+      await pm.state.set('molelaw-fixture', state);
+      return send(204);
+    }
+    if (path === '/api/users/me/password') {
+      if (typeof body?.currentPassword !== 'string' || !body.currentPassword || typeof body?.newPassword !== 'string' || body.newPassword.length < 8 || Buffer.byteLength(body.newPassword) > 72 || !body.newPassword.trim()) return fail(400, 'INVALID_REQUEST', '잘못된 요청입니다.');
+      if (body.currentPassword !== (state.password || 'Fixture-password!123')) return fail(400, 'PASSWORD_FAIL', '현재 비밀번호가 일치하지 않습니다.');
+      state.password = body.newPassword;
+      await pm.state.set('molelaw-fixture', state);
+      return send(200);
+    }
+  }
   if (path === '/api/chat-rooms' && req.method === 'GET') {
     const size = Number(url.searchParams.get('size') || 20), page = Number(url.searchParams.get('page') || 0);
     return send(200, state.rooms.slice(page * size, (page + 1) * size));

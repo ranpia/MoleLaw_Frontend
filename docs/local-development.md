@@ -125,3 +125,7 @@ postman request http://localhost:8080/api/auth/csrf --no-report-events --script-
 최초·후속 NDJSON 실제 브라우저 검증: `npm.cmd run verify:ndjson` (5173 포트 프론트와 8080 백엔드 필요). 별도 임시 계정으로 실제 AI를 호출하고 검증 후 삭제한다. 스트림 파서·답변 표시 속도의 모의 검증은 `npm.cmd run verify:stream`으로 실행한다. 기존 Postman simulation은 JSON 채팅 계약 기준이므로 NDJSON fixture 갱신 전이다.
 
 브라우저 프로필·스크린샷·요약은 Git에서 제외한 `.artifacts.local/`에 저장한다. 인증 쿠키가 있을 수 있으므로 커밋하거나 공유하지 않는다. 비밀값은 `VITE_*` 환경변수에 넣지 않는다. 이번 변경과 검증 결과는 [현황 문서](frontend-plan.md)에 기록한다.
+
+## 이름·비밀번호 변경 화면 검사
+
+위 Postman simulation과 5174 프론트를 새로 실행한 뒤 node scripts/browser-check.mjs account로 확인한다. 실행할 때마다 fixture 비밀번호가 바뀌므로 재검사 전 simulation을 다시 시작한다. 이 검사는 모의 서버 대상이며 실제 사용자 계정은 변경하지 않는다.

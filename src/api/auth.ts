@@ -8,5 +8,5 @@ export const authApi = {
   logout: async () => { await api.post("/auth/logout"); },
   remove: async () => { await api.delete("/users/me"); },
   nickname: async (newNickname: string) => { await api.patch("/users/me/nickname", { newNickname }); },
-  password: async (newPassword: string) => { await api.patch("/users/me/password", { newPassword }); },
+  password: async (currentPassword: string, newPassword: string) => { await api.patch("/users/me/password", { currentPassword, newPassword }); },
 };

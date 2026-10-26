@@ -50,6 +50,20 @@ export const useDataStore = create<DataStore>((set, get) => ({
       if (version === selectionVersion && session === getSessionVersion() && get().selectedChatRoomID === id) set({ evidence: data, evidenceError: null });
     } catch (error) { if (version === selectionVersion && session === getSessionVersion()) set({ evidenceError: errorMessage(error, "근거 목록을 불러오지 못했습니다.") }); }
   },
+  renameChatroom: async (id, title) => {
+    const trimmed = title.trim();
+    if (!trimmed || [...trimmed].length > 255) {
+      set({ error: "상담방 이름은 공백을 제외한 1~255자로 입력해 주세요." });
+      return false;
+    }
+    const session = getSessionVersion();
+    try {
+      await chatApi.rename(id, trimmed);
+      if (session !== getSessionVersion()) return false;
+      set({ chatRooms: get().chatRooms.map((room) => room.id === id ? { ...room, title: trimmed } : room), error: null });
+      return true;
+    } catch (error) { if (session === getSessionVersion()) set({ error: errorMessage(error, "상담방 이름을 변경하지 못했습니다.") }); return false; }
+  },
   deleteChatroom: async (id) => {
     const session = getSessionVersion();
     try {

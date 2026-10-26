@@ -77,12 +77,13 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
     } catch (error) { return errorMessage(error, "닉네임 변경에 실패했습니다."); }
     finally { set({ isLoading: false }); }
   },
-  changePassword: async (password) => {
+  changePassword: async (currentPassword, password) => {
+    if (!currentPassword || new TextEncoder().encode(currentPassword).length > 72) return "현재 비밀번호를 72바이트 이내로 입력해 주세요.";
     if (!validatePassword(password)) return "비밀번호는 8~72자 및 UTF-8 72바이트 이내로 입력해 주세요.";
     if (get().isLoading) return "변경 처리 중입니다.";
     set({ isLoading: true });
     try {
-      await authApi.password(password);
+      await authApi.password(currentPassword, password);
       clearSession();
       return "비밀번호를 변경했습니다. 새 비밀번호로 다시 로그인해 주세요.";
     } catch (error) { return errorMessage(error, "비밀번호 변경에 실패했습니다."); }

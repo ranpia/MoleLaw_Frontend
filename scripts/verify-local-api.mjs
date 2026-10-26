@@ -66,7 +66,11 @@ try {
   check('logged out profile', await request('GET', '/users/me'), 401);
   check('login raw access response', await request('POST', '/auth/login', { email, password }), 200, (d) => assert.ok(d.accessToken));
   const newPassword = `Updated-${randomUUID()}!`;
-  check('password update empty body', await request('PATCH', '/users/me/password', { newPassword }), 200, (d) => assert.equal(d, ''));
+  check('missing current password rejected', await request('PATCH', '/users/me/password', { newPassword }), 400);
+  check('wrong current password rejected', await request('PATCH', '/users/me/password', { currentPassword: 'Wrong-password!123', newPassword }), 400, (d) => assert.equal(d.error.code, 'PASSWORD_FAIL'));
+  check('refresh preserved after wrong password', await request('POST', '/auth/refresh'), 200);
+  check('rename missing room', await request('PATCH', '/chat-rooms/9223372036854775807/title', { title: '새 상담 이름' }), 404);
+  check('password update empty body', await request('PATCH', '/users/me/password', { currentPassword: password, newPassword }), 200, (d) => assert.equal(d, ''));
   password = newPassword;
   check('logout after password change', await request('POST', '/auth/logout'), 200);
   check('login with changed password', await request('POST', '/auth/login', { email, password }), 200);
@@ -76,6 +80,8 @@ try {
     if (turn.status !== 200) console.log(`Consultation returned ${turn.status} / ${turn.data?.error?.code || 'unknown'}`);
     check('real first consultation', turn, 200, (d) => { assert.ok(d.id); assert.ok(d.messages.some((m) => m.sender === 'BOT')); });
     const room = turn.data.id;
+    check('rename disposable conversation', await request('PATCH', `/chat-rooms/${room}/title`, { title: '  변경한 상담 이름 😀  ' }), 204);
+    check('renamed conversation persisted', await request('GET', '/chat-rooms?page=0&size=20'), 200, (d) => assert.equal(d.find(r => r.id === room)?.title, '변경한 상담 이름 😀'));
     check('persisted conversation', await request('GET', `/chat-rooms/${room}/messages`), 200, (d) => assert.ok(d.some((m) => m.sender === 'BOT')));
     const evidence = await request('GET', `/chat-rooms/${room}/evidence`);
     check('real evidence list', evidence, 200, (d) => assert.ok(d.length));

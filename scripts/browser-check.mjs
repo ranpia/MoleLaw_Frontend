@@ -6,7 +6,7 @@ import { randomUUID } from 'node:crypto';
 
 // No browser package needed: isolated headless Chrome via the DevTools protocol.
 const mode = process.argv[2] || 'live';
-const origin = mode === 'simulation' ? 'http://localhost:5174' : 'http://localhost:5173';
+const origin = ['simulation', 'account'].includes(mode) ? 'http://localhost:5174' : 'http://localhost:5173';
 const directory = resolve('.artifacts.local', `browser-${mode}-${Date.now()}`);
 await mkdir(directory, { recursive: true });
 const chrome = spawn(process.env.CHROME_PATH || 'C:/Program Files/Google/Chrome/Application/chrome.exe', [
@@ -56,8 +56,8 @@ try {
     const message = JSON.parse(event.data);
     if (message.id) { const task = pending.get(message.id); if (task) { pending.delete(message.id); message.error ? task.reject(new Error(message.error.message)) : task.resolve(message.result); } }
     else if (message.method === 'Runtime.exceptionThrown') exceptions.push(message.params.exceptionDetails.text);
-    else if (message.method === 'Network.responseReceived' && message.params.response.url.includes('/api/')) responses.push({ path: new URL(message.params.response.url).pathname, status: message.params.response.status });
-    else if (message.method === 'Network.requestWillBeSent' && message.params.request.url.includes('/api/')) {
+    else if (message.method === 'Network.responseReceived' && new URL(message.params.response.url).pathname.startsWith('/api/')) responses.push({ path: new URL(message.params.response.url).pathname, status: message.params.response.status });
+    else if (message.method === 'Network.requestWillBeSent' && new URL(message.params.request.url).pathname.startsWith('/api/')) {
       const req = message.params.request;
       const headers = Object.fromEntries(Object.entries(req.headers).map(([key, value]) => [key.toLowerCase(), value]));
       requests.push({ path: new URL(req.url).pathname, method: req.method, contentType: headers['content-type'], csrfPresent: !!headers['x-xsrf-token'] });
@@ -68,7 +68,40 @@ try {
   await send('Network.enable');
   await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'no-preference' }] });
   await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 1000, deviceScaleFactor: 1, mobile: false });
-  if (mode === 'live' || mode === 'ndjson') {
+  if (mode === 'account') {
+    await until(() => exists('.room-select'), 'fixture room list');
+    const originalTitle = await evaluate("document.querySelector('.room-select').textContent");
+    await evaluate("document.querySelector('.room-rename').click()");
+    await value('.room-rename-form input', '취소할 이름');
+    await clickText('취소');
+    assert.equal(await evaluate("document.querySelector('.room-select').textContent"), originalTitle);
+    await evaluate("document.querySelector('.room-rename').click()");
+    await value('.room-rename-form input', '😀'.repeat(256));
+    assert.equal(await evaluate("document.querySelector('.room-rename-form button[type=submit]').disabled"), true);
+    await value('.room-rename-form input', '  변경한 상담방 😀  ');
+    await evaluate("document.querySelector('.room-rename-form').requestSubmit()");
+    await until(() => evaluate("document.querySelector('.room-select')?.textContent === '변경한 상담방 😀'"), 'renamed title');
+    await send('Page.reload');
+    await until(() => evaluate("document.querySelector('.room-select')?.textContent === '변경한 상담방 😀'"), 'persisted title');
+    assert.ok(requests.some(r => r.method === 'PATCH' && r.path.endsWith('/title') && r.csrfPresent));
+    pass('title cancel, Unicode limit, CSRF PATCH, trimmed title and reload persistence');
+    await clickText('계정 설정');
+    await value('input[autocomplete=current-password]', 'Wrong-password!123');
+    await value('input[autocomplete=new-password]', 'New-fixture!123');
+    await value('input[autocomplete=new-password]:not(:first-of-type)', 'New-fixture!123').catch(() => {});
+    await evaluate(`(() => { const el = document.querySelectorAll('input[autocomplete=new-password]')[1]; Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(el, 'New-fixture!123'); el.dispatchEvent(new Event('input', { bubbles: true })); })()`);
+    await clickText('비밀번호 변경');
+    await until(() => evaluate("document.querySelector('.settings-card [role=status]')?.textContent.includes('현재 비밀번호')"), 'password mismatch message');
+    assert.equal(await exists('.settings-card'), true);
+    pass('wrong current password displays error and preserves authenticated screen');
+    await value('input[autocomplete=current-password]', 'Fixture-password!123');
+    await value('input[autocomplete=new-password]', 'New-fixture!123');
+    await evaluate(`(() => { const el = document.querySelectorAll('input[autocomplete=new-password]')[1]; Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(el, 'New-fixture!123'); el.dispatchEvent(new Event('input', { bubbles: true })); })()`);
+    await clickText('비밀번호 변경');
+    await until(() => exists('.auth-card'), 'password change login screen');
+    assert.ok(responses.some(r => r.path === '/api/users/me/password' && r.status === 200));
+    pass('current and new password sent; successful change clears local session');
+  } else if (mode === 'live' || mode === 'ndjson') {
     await until(() => exists('.auth-card'), 'login screen');
     pass('real server unauthenticated login screen');
     await clickText('회원가입');

@@ -7,6 +7,7 @@ export default function SettingPanel({ show, showHandle }: Props) {
   const { user, isLoading, changeNickname, changePassword, quit } = useAuthStore();
   const [nickname, setNickname] = useState(user?.nickname || "");
   const [password, setPassword] = useState("");
+  const [currentPassword, setCurrentPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState("");
@@ -17,8 +18,8 @@ export default function SettingPanel({ show, showHandle }: Props) {
     e.preventDefault();
     if (!validatePassword(password)) { notify("비밀번호는 8~72자 및 UTF-8 72바이트 이내로 입력해 주세요."); return; }
     if (password !== confirm) { notify("비밀번호가 일치하지 않습니다."); return; }
-    notify(await changePassword(password));
-    setPassword(""); setConfirm("");
+    notify(await changePassword(currentPassword, password));
+    setCurrentPassword(""); setPassword(""); setConfirm("");
   };
   const deleteAccount = async (e: FormEvent) => {
     e.preventDefault();
@@ -38,6 +39,7 @@ export default function SettingPanel({ show, showHandle }: Props) {
       <form className="stack" onSubmit={(e) => void changePass(e)}>
         <h3>비밀번호 변경</h3>
         <p className="muted">8~72자, UTF-8 72바이트 이내. 변경 후 다시 로그인해 주세요.</p>
+        <label>현재 비밀번호<input type="password" autoComplete="current-password" required disabled={isLoading} value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} /></label>
         <label>새 비밀번호<input type="password" autoComplete="new-password" required disabled={isLoading} value={password} onChange={(e) => setPassword(e.target.value)} /></label>
         <label>새 비밀번호 확인<input type="password" autoComplete="new-password" required disabled={isLoading} value={confirm} onChange={(e) => setConfirm(e.target.value)} /></label>
         <button disabled={isLoading} type="submit">비밀번호 변경</button>
