@@ -54,9 +54,11 @@ summary { cursor: pointer; }
 .room-rename { flex: 0 0 30px; padding: 6px; }
 .room-rename-form { width: 100%; min-width: 0; padding: 6px; }
 .room-rename-form input { width: 100%; min-width: 0; }
-.question-suggestions { max-height: min(45vh, 420px); overflow: auto; padding-top: 12px; }
-.question-suggestion { border: 1px solid #ddd; border-radius: 8px; margin: 10px 0; padding: 12px; }
-.question-suggestion p { white-space: pre-wrap; overflow-wrap: anywhere; }
+.question-suggestions { max-width: 760px; padding: 12px 0; }
+.conversation:has(.question-suggestions) .welcome { min-height: 0; padding: 24px 0; }
+.question-suggestion { display: block; width: fit-content; max-width: 100%; border: 1px solid #dcc6ba; border-radius: 4px 18px 18px; margin: 12px 0; padding: 16px 20px; background: #fff; color: #493a33; text-align: left; box-shadow: 0 3px 10px #62321808; }
+.question-suggestion:hover:not(:disabled) { background: #f5e8df; border-color: #b78b76; }
+.question-suggestion-text { display: block; margin-top: 8px; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.6; }
 .sidebar-error { font-size: 12px; padding: 12px 0; line-height: 1.6; }
 .sidebar-error button { margin-top: 8px; }
 .sidebar-bottom { display: flex; flex-direction: column; align-items: stretch; gap: 8px; padding-top: 18px; border-top: 1px solid #ffffff30; }

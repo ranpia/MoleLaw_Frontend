@@ -108,3 +108,7 @@ stream 병합 후 lint, 프로덕션 build(configLoader runner), verify:stream �
 검증: lint/build/verify:stream 통과. 실제 서버 API 27개 통과(실제 모델 추천 1회, 원문 보존, 긴 초안 원문 반환, 추천 후 방 목록 빈 배열, 기존 인증·비밀번호 검사와 임시 계정 삭제 포함). 실제 최초·후속 AI 상담은 이번에 반복하지 않았다. Postman simulation + Chrome 7개 검사 통과: 명시적·중복 방지 추천, 입력 수정 후 늦은 응답 무시, 모바일 너비, 선택 문장 최초 NDJSON 전송과 동의 없음, 후속 NDJSON 우회, 500 후 원문 전송, JS 예외 없음. backend 멤버의 추천·최초·후속 요청 이벤트 확인. 산출물: `.artifacts.local/browser-suggestions-1793002666257/`.
 
 운영 중인 프론트는 실험 브랜치로 다시 빌드하며 5173 포트를 유지한다. dev에는 병합하지 않는다.
+
+## 추천 질문 말풍선 UI — 2026-10-26
+
+실험 브랜치에서 추천 질문·추천 중 상태를 입력 폼 밖의 채팅 영역으로 옮겼다. 추천 말풍선 전체가 클릭·키보드 선택 가능한 버튼이며, 선택 시 별도 확인 버튼 없이 해당 문장을 기존 최초 NDJSON으로 전송한다. 중복 전송 방지와 원문·추천 취소 흐름은 유지한다. lint/build 통과. Postman simulation + Chrome 7개 검사에서 채팅 영역 배치, 말풍선 두 번 클릭 시 최초 요청 1회, 선택 문장 전송, 후속 NDJSON, 취소·오류 복구와 모바일 너비를 확인했다. 실제 AI 호출은 반복하지 않았다. 산출물: .artifacts.local/browser-suggestions-1793003798741/.

@@ -74,13 +74,17 @@ try {
     await clickText('질문 다듬기');
     await clickText('질문 다듬기');
     await until(() => exists('.question-suggestion'), 'suggestions');
+    assert.equal(await exists('.conversation .question-suggestion'), true);
+    assert.equal(await exists('.composer .question-suggestion'), false);
     assert.equal(requests.filter(r => r.path === '/api/legal-answers/suggestions').length, 1);
     assert.equal(requests.filter(r => r.path === '/api/chat-rooms/ndjson').length, 0);
     assert.equal(await evaluate("document.querySelectorAll('.user-message').length"), 0);
+    await writeFile(resolve(directory, 'suggestions-desktop.png'), Buffer.from((await send('Page.captureScreenshot', { format: 'png' })).data, 'base64'));
     pass('explicit suggestion request only; duplicate prevented; no consultation started');
     await send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
     await pause(150);
     assert.equal(await evaluate('document.documentElement.scrollWidth <= window.innerWidth'), true);
+    await writeFile(resolve(directory, 'suggestions-mobile.png'), Buffer.from((await send('Page.captureScreenshot', { format: 'png' })).data, 'base64'));
     await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 1000, deviceScaleFactor: 1, mobile: false });
     await value('#question', '지연 추천 검증');
     assert.equal(await exists('.question-suggestion'), false);
@@ -92,8 +96,8 @@ try {
     pass('editing cancels pending suggestion and discards stale response; mobile suggestions fit');
     await clickText('질문 다듬기');
     await until(() => exists('.question-suggestion'), 'updated suggestions');
-    const selected = await evaluate("document.querySelector('.question-suggestion p').textContent");
-    await clickText('이 질문으로 상담 시작');
+    const selected = await evaluate("document.querySelector('.question-suggestion-text').textContent");
+    await evaluate("document.querySelector('.question-suggestion').click(); document.querySelector('.question-suggestion').click()");
     await until(() => exists('.bot-message'), 'chosen question answer');
     await until(() => evaluate("!document.querySelector('#question').disabled"), 'stream completion');
     let posts = await (await fetch('http://127.0.0.1:4900/backend/__fixture/requests')).json();

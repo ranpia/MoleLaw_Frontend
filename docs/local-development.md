@@ -132,7 +132,7 @@ postman request http://localhost:8080/api/auth/csrf --no-report-events --script-
 
 ## 최초 질문 다듬기 실험
 
-`experiment/initial-question-suggestions` 브랜치에서 새 상담의 **질문 다듬기**로 추천을 요청하고 **이 질문으로 상담 시작**을 선택한다. 추천 생성에는 모델 호출이 발생할 수 있지만 상담방은 아직 생성하지 않는다. **원문으로 질문**은 기존 최초 NDJSON을 바로 사용한다.
+`experiment/initial-question-suggestions` 브랜치에서 새 상담의 **질문 다듬기**로 추천을 요청하고 채팅 영역에 표시된 추천 말풍선을 누르면 바로 질문을 전송한다. 추천 생성에는 모델 호출이 발생할 수 있지만 상담방은 아직 생성하지 않는다. **원문으로 질문**은 기존 최초 NDJSON을 바로 사용한다.
 
 실제 서버 추천 검사(임시 계정 생성·삭제, 실제 모델 1회 포함): `node scripts/verify-local-api.mjs --suggestions`.
 모의 브라우저 검사: Postman simulation과 5174 프론트를 새로 실행하고 `node scripts/browser-check.mjs suggestions`를 실행한다. 첫·후속 스트림은 테스트용 확정 응답이며 실제 AI 상담·검색 품질을 검증하지 않는다.

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { validateQuestion } from "../../../api/validation";
 import { chatApi } from "../../../api/chat";
 import { errorMessage } from "../../../api/client";
@@ -6,8 +7,9 @@ import type { SuggestedQuestion } from "../../../api/types";
 
 interface Props {
   onSubmit: (message: string) => Promise<boolean>; disabled: boolean; onEdit: () => void; suggestInitial?: boolean;
+  suggestionsTarget?: HTMLElement | null;
 }
-export default function ChattingBar({ onSubmit, disabled, onEdit, suggestInitial = false }: Props) {
+export default function ChattingBar({ onSubmit, disabled, onEdit, suggestInitial = false, suggestionsTarget }: Props) {
   const [input, setInput] = useState("");
   const [error, setError] = useState<string | null>(null);
   const ref = useRef<HTMLTextAreaElement>(null);
@@ -50,6 +52,7 @@ export default function ChattingBar({ onSubmit, disabled, onEdit, suggestInitial
   };
   const count = [...input].length;
   return (
+    <>
     <form className="composer" onSubmit={(e) => { e.preventDefault(); void submit(); }}>
       <label className="sr-only" htmlFor="question">법률 질문</label>
       <textarea id="question" ref={ref} value={input} disabled={disabled} placeholder="어떤 고민이 있으신가요?"
@@ -64,16 +67,20 @@ export default function ChattingBar({ onSubmit, disabled, onEdit, suggestInitial
           {suggestInitial && <button type="button" disabled={disabled || suggesting || !input.trim() || count > 2000} onClick={() => void suggest()}>질문 다듬기</button>}
           <button className="primary" disabled={disabled || suggesting || !input.trim() || count > 2000} type="submit">{suggestInitial ? "원문으로 질문" : "질문 보내기"}</button>
         </div></div>
-      {suggesting && <p role="status">질문을 다듬고 있습니다… <button type="button" onClick={cancelSuggestions}>취소</button></p>}
-      {suggestInitial && suggestions.length > 0 && <section className="question-suggestions" aria-label="추천 질문">
-        <p>어떤 방향으로 상담할까요?</p><small className="muted">선택한 질문으로 상담을 시작합니다.</small>
-        {suggestions.map((item, index) => <div className="question-suggestion" key={`${item.id}:${index}`}>
-          <strong>{item.label}</strong><p>{item.question}</p>
-          <button type="button" disabled={disabled} onClick={() => void submit(item.question)}>이 질문으로 상담 시작</button>
-        </div>)}
-        <button type="button" disabled={disabled} onClick={cancelSuggestions}>추천 닫기</button>
-      </section>}
       {error && <p className="error" role="alert">{error}</p>}
     </form>
+    {suggestInitial && suggestionsTarget && (suggesting || suggestions.length > 0) && createPortal(
+      <section className="question-suggestions" aria-label="추천 질문">
+        <span className="eyebrow">MoleLaw</span>
+        {suggesting ? <p role="status">질문을 다듬고 있습니다… <button type="button" onClick={cancelSuggestions}>취소</button></p> : <>
+          <p>어떤 방향으로 상담할까요? 말풍선을 누르면 바로 질문을 보냅니다.</p>
+          {suggestions.map((item, index) => <button className="question-suggestion" type="button" key={`${item.id}:${index}`}
+            disabled={disabled} onClick={() => void submit(item.question)}>
+            <strong>{item.label}</strong><span className="question-suggestion-text">{item.question}</span>
+          </button>)}
+          <button type="button" disabled={disabled} onClick={cancelSuggestions}>추천 닫기</button>
+        </>}
+      </section>, suggestionsTarget)}
+    </>
   );
 }

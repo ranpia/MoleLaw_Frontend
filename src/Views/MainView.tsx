@@ -13,6 +13,7 @@ export default function MainView() {
   const { user } = useAuthStore();
   const [activeEvidence, setActiveEvidence] = useState<string | null>(null);
   const [declinedAt, setDeclinedAt] = useState<string | null>(null);
+  const [suggestionsTarget, setSuggestionsTarget] = useState<HTMLDivElement | null>(null);
   const conversation = useRef<HTMLDivElement>(null);
   const followAnswer = useRef(true);
   const lastScrollTop = useRef(0);
@@ -48,6 +49,7 @@ export default function MainView() {
             <p>상황을 구체적으로 적어주시면 관련 법령과 근거를 함께 살펴봅니다.</p>
           </div>}
           {messages.map((message, index) => <ConversationMessage key={index} message={message} evidence={evidence} onEvidence={setActiveEvidence} />)}
+          <div ref={setSuggestionsTarget} />
           {consent && <section className="consent-card" aria-label="판례 검색 동의">
             <p>관련 판례를 추가로 검색할까요?</p><small>승인하면 이번 질문에 한해 외부 판례 검색과 본문 수집을 진행합니다.</small>
             <div className="button-row"><button disabled={loading || roomLoading} className="primary" onClick={() => void send("네, 관련 판례를 검색해 주세요.", true)}>판례 검색 승인</button>
@@ -62,7 +64,7 @@ export default function MainView() {
             {selectedChatRoomID !== null && <button disabled={loading || roomLoading} onClick={() => { newChat(); clearError(); }}>새 상담에서 시작하기</button>}</section>}
         </div>
         <footer className="chat-footer">
-          <ChattingBar key={selectedChatRoomID ?? "new"} suggestInitial={selectedChatRoomID === null} disabled={loading || roomLoading} onSubmit={send} onEdit={clearError} />
+          <ChattingBar key={selectedChatRoomID ?? "new"} suggestInitial={selectedChatRoomID === null} suggestionsTarget={suggestionsTarget} disabled={loading || roomLoading} onSubmit={send} onEdit={clearError} />
         </footer>
       </main>
       {selectedChatRoomID !== null && <EvidencePanel key={selectedChatRoomID} roomId={selectedChatRoomID} activeId={activeEvidence} onSelect={setActiveEvidence} />}

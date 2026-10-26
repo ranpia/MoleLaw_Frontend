@@ -22,6 +22,7 @@ Run the frontend against the backend member in `frontend.sim.yaml`. Account/titl
 ## Observations
 
 <!-- begin:observations -->
+- 2026-10-26: bubble UI rerun passed; backend received one first-NDJSON request for a double click on the selected bubble, plus recommendation, follow-up and fallback requests. No member was silent.
 - 2026-10-26: suggestions browser check passed; backend served explicit recommendation calls, first/follow-up NDJSON and the controlled recommendation 500. Late recommendation cancellation and raw-question fallback passed. No member was silent.
 - 2026-10-26: account browser check passed. The sole member `backend` served profile, list, CSRF, title update/reload and failed/successful password changes; no member was silent. No actual AI calls or real user accounts were used.
 <!-- end:observations -->
