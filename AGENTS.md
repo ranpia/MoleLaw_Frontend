@@ -32,9 +32,9 @@
 
 ## 실행 환경 방향
 
-- 사용자가 백엔드를 Docker로 실행했다. API는 `http://localhost:8080`, Swagger는 `http://localhost:8080/swagger-ui.html`이다. 프론트 Dockerfile·compose.yaml은 작성했으나 Docker 엔진 접근 권한 제한으로 빌드·실행은 미검증이다.
+- 사용자가 백엔드를 Docker로 실행했다. API는 `http://localhost:8080`, Swagger는 `http://localhost:8080/swagger-ui.html`이다. 2026-10-26 프론트 Docker 이미지 재빌드·기동과 5173의 HTTP 200을 확인했다.
 - 프론트 Docker 관련 파일도 이 프로젝트 안에 둔다. 백엔드 Docker 파일은 변경하지 않는다.
-- Vite 개발·미리보기 서버는 3000에서 `/api`, `/oauth2`, `/login/oauth2`를 백엔드로 프록시한다. 호스트 기본 target은 localhost:8080, Compose에서는 host.docker.internal:8080이다.
+- Vite 개발·미리보기 서버는 5173에서 `/api`, `/oauth2`, `/login/oauth2`를 백엔드로 프록시한다. 호스트 기본 target은 localhost:8080, Compose에서는 host.docker.internal:8080이다.
 - 브라우저가 사용하는 주소와 컨테이너 내부 주소를 구분한다. OAuth 경로도 실제 설정을 확인한다.
 - 인증 쿠키·CORS·CSRF를 백엔드 계약에 맞춘다. 연동 편의를 위해 보안 정책을 임의로 해제하지 않는다.
 - 비밀값을 커밋하거나 로그에 출력하지 않는다. 환경변수 예시는 실제 비밀값 없이 작성한다.
@@ -44,6 +44,6 @@
 - 제공 스크립트: `npm run build`, `npm run lint`, `npm run dev`, `npm run preview`.
 - Node v24.22.1, npm 11.19.1 설치 완료. 이 세션 PATH에는 미반영이므로 명령 실행 시 `C:/Program Files/nodejs`를 PATH에 추가했다. 사용자가 npm ci를 완료했다.
 - 2026-10-24 구조 정리 이후 `npm.cmd run build -- --configLoader runner`, lint, `npm.cmd run verify:stream` 통과. 기본 config loader와 개발 사전 번들링은 이전 제한 환경에서 실패한 기록이 있다.
-- 실제 API 19개 검사 이력과 최초·후속 NDJSON 실제 브라우저 검사 통과. 3000 포트에서 로그아웃·재로그인·쿠키 누락 갱신·프로필 검증도 통과했다. 기존 Postman 모의 fixture의 NDJSON 전환과 Docker 실행 검증은 남아 있다. 상세 결과는 `docs/frontend-plan.md` 참조.
+- 실제 API 19개 검사 이력과 최초·후속 NDJSON 실제 브라우저 검사 통과. 3000 포트에서 로그아웃·재로그인·쿠키 누락 갱신·프로필 검증도 통과했다. 2026-10-26에는 5173 Docker 기동과 사용자 수동 인증·후속 NDJSON 정상 동작 확인을 완료했다. 기존 Postman 모의 fixture의 NDJSON 전환은 남아 있다. 상세 결과는 `docs/frontend-plan.md` 참조.
 - 변경 범위에 맞춰 검증하고, 소스 대조·모의 검증·실제 서버 연동 결과를 구분해 보고한다.
 - API 작업 시 세션에서 제공되는 Postman 스킬 지침을 따른다. 소스 비교만을 위해 불필요한 워크스페이스 생성이나 게시를 하지 않는다.

@@ -1,8 +1,6 @@
 # 중간 저장 — 2026-10-23
 
-> 2026-10-24 사용자 요청으로 재개했다. 최초·후속 NDJSON 연결, 표시 속도·로딩 애니메이션, 구조 정리 및 실제 브라우저 검증 결과는 [최신 작업 현황](frontend-plan.md)에 기록했다. 아래 내용은 중지 당시 기록이다. 현재 프론트는 3000 포트이며 브라우저 로그아웃·인증 복구 재검증은 통과했다. Postman NDJSON fixture와 Docker 실행 검증은 남아 있다.
-
-사용자 요청: “중간 저장하고 잠깐 멈춰줘”. 현재 일시 중지 상태다. 사용자 재개 요청 전 추가 구현·검증을 진행하지 않는다. 커밋·푸시는 하지 않았으며 변경사항은 작업 디렉터리에 저장했다.
+2026-10-23 구현·검증을 중지할 때 남긴 기록이다. 2026-10-26 문서 정리 과정에서 중복 내용과 지난 도구 세션 번호를 제거했다. 당시 결과를 현재 재검증한 것으로 해석하지 않는다. 이후 stream 브랜치에서 구현·검증이 재개되었으며 2026-10-26 dev에 병합했다. 현재 포트는 사용자 요청에 따라 5173이며, 2026-10-24 인증·최초·후속 NDJSON 브라우저 검사 통과 기록은 작업 현황 문서를 우선한다.
 
 ## 현재 실행 환경
 
@@ -14,20 +12,7 @@
 - npm 의존성 설치는 도구의 외부 네트워크가 차단되어 사용자가 직접 npm ci를 실행해 완료했다.
 - Docker 엔진은 도구에서 접근 권한이 없어 제어하지 못한다. 백엔드는 변경하지 않았다.
 
-## 저장한 구현
-
-- `src/api/client.ts`: 공통 Axios, CSRF JSON 조회·헤더, 401 시 갱신 후 1회 재요청, 갱신 단일 Promise와 Web Locks, 세션 초기화 이벤트, 공통 오류 문구.
-- `src/api/validation.ts`: 질문 코드포인트·UTF-8 바이트, 비밀번호 길이·바이트 검증.
-- 인증 스토어: users/me·auth/refresh 경로, 가입 후 내 정보 조회, 토큰 상태·계정 변경·탈퇴·로그아웃 처리, any 제거.
-- 채팅·데이터 스토어: 새 상담 POST 경로, messages 조회, 근거 조회, 페이지 목록, 세션/방 전환의 오래된 응답 방어, 오류 시 사용자 메시지 복구.
-- 화면: 반응형 로그인·가입·계정 설정·사이드바·채팅, 중복 전송 방지·IME Enter 대응·실패 시 입력 유지, 근거 UUID 연결과 원문 읽기, 명시적 판례 검색 승인.
-- 스타일: 로컬 Pretendard 사용, 기본 Vite 전역 스타일 교체, 모바일 배치.
-- Vite: /api와 OAuth 프록시, 5173 고정, 긴 상담 요청 대기.
-- Dockerfile·compose.yaml·.dockerignore·.env.example 작성. Docker 실행 검증 전이다.
-- `scripts/verify-local-api.mjs`: 새 임시 계정으로 실제 API 검사 후 삭제. 비밀값을 출력·저장하지 않는다.
-- `scripts/browser-check.mjs`: 별도 프로필의 headless Chrome + CDP로 실제 화면과 모의 화면 검사. 검증 스크립트 자체도 아직 정리 중이다.
-- `postman/mocks/backend/`, `postman/simulations/frontend.sim.yaml`: 실행 서버 OpenAPI 기반 로컬 모의 계약. Postman은 미로그인이라 소유 팀 mock 검색은 생략했다. 게시하지 않았다.
-- `postman/csrf-check.js`: 단일 CSRF 응답 검사.
+구현 범위는 [작업 현황과 계획](frontend-plan.md)에 정리했다.
 
 ## 검증 결과와 실패
 
@@ -56,8 +41,7 @@
 - 실제 브라우저 첫 검사 산출물: `.artifacts.local/browser-live-1792741307858/` (임시 계정 삭제 확인).
 - 모의 첫 실패: `.artifacts.local/browser-simulation-1792741368941/`.
 - 실제 브라우저 마지막 실패: `.artifacts.local/browser-live-1792741385327/`.
-- 프론트 preview 세션 62108 (5173), 모의용 preview 세션 82233 (5174)은 중지 요청에 따라 종료한다.
-- Postman simulation 세션 47153은 이미 Ctrl+C로 종료했다. 마지막 mock 수정 후 재시작하지 않았다.
+- 마지막 mock 수정 후 simulation을 재시작하지 않았다.
 - 백엔드 Docker 서버는 그대로 둔다.
 
 ## 재개 시 권장 순서

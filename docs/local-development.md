@@ -5,7 +5,7 @@
 - 백엔드는 별도로 실행: `http://localhost:8080`
 - Swagger: `http://localhost:8080/swagger-ui.html`
 - OpenAPI: `http://localhost:8080/v3/api-docs`
-- 프론트: `http://localhost:3000`
+- 프론트: `http://localhost:5173`
 - 권장 Node: 24 LTS. 확인한 버전은 Node 24.22.1 / npm 11.19.1이다.
 
 ## 호스트에서 실행
@@ -36,15 +36,15 @@ docker compose up --build -d
 docker compose logs -f frontend
 ```
 
-브라우저에서 `http://localhost:3000`을 연다. Compose는 프론트 컨테이너에서 `http://host.docker.internal:8080`으로 접근하도록 설정했다. 컨테이너의 localhost는 호스트 백엔드가 아니다.
+브라우저에서 `http://localhost:5173`을 연다. Compose는 프론트 컨테이너에서 `http://host.docker.internal:8080`으로 접근하도록 설정했다. 컨테이너의 localhost는 호스트 백엔드가 아니다.
 
-현재 Dockerfile은 Vite 개발 서버를 제공한다. 소스 bind mount는 없으므로 소스 변경 후 다시 `docker compose up --build -d`를 실행한다. 호스트에서 Vite를 실행 중이면 같은 3000 포트를 쓰는 프로세스를 먼저 종료한다.
+현재 Dockerfile은 Vite 개발 서버를 제공한다. 소스 bind mount는 없으므로 소스 변경 후 다시 `docker compose up --build -d`를 실행한다. 호스트에서 Vite를 실행 중이면 같은 5173 포트를 쓰는 프로세스를 먼저 종료한다.
 
 ```powershell
 docker compose down
 ```
 
-이 명령은 이 프론트 Compose 서비스만 내린다. 백엔드 설정·컨테이너는 변경하지 않는다. 작성한 Docker 설정의 실제 빌드·기동은 도구의 Docker 엔진 접근 권한 제한으로 아직 확인하지 못했다.
+이 명령은 이 프론트 Compose 서비스만 내린다. 백엔드 설정·컨테이너는 변경하지 않는다. 2026-10-26 `docker compose up --build -d frontend`로 이미지 빌드·컨테이너 기동을 확인했고, `http://localhost:5173`에서 HTTP 200 응답을 확인했다. 로그인·채팅 등 전체 기능 연동은 별도 검증이 필요하다.
 
 OAuth는 공급자에 등록된 callback과 백엔드의 로그인 완료 리디렉션 주소가 실제 로컬 주소와 맞아야 한다. 현재 소셜 로그인 전체 흐름은 미검증이다. 프록시 설정만으로 공급자의 등록 주소가 바뀌지는 않는다.
 
@@ -70,14 +70,14 @@ node scripts/verify-local-api.mjs --consultation
 
 ```powershell
 npm.cmd run build -- --configLoader runner
-npm.cmd run preview -- --host 127.0.0.1 --port 3000 --strictPort --configLoader runner
+npm.cmd run preview -- --host 127.0.0.1 --port 5173 --strictPort --configLoader runner
 ```
 
 개발 서버의 사전 번들링도 같은 제한을 받을 수 있다. 이 경우 위 빌드 결과의 preview로 검증한다.
 
 ## 실제 브라우저 검사
 
-3000에서 프론트를 실행하고 백엔드가 켜진 상태에서:
+5173에서 프론트를 실행하고 백엔드가 켜진 상태에서:
 
 ```powershell
 npm.cmd run verify:browser
@@ -122,6 +122,6 @@ postman request http://localhost:8080/api/auth/csrf --no-report-events --script-
 
 ## 산출물
 
-최초·후속 NDJSON 실제 브라우저 검증: `npm.cmd run verify:ndjson` (3000 포트 프론트와 8080 백엔드 필요). 별도 임시 계정으로 실제 AI를 호출하고 검증 후 삭제한다. 스트림 파서·답변 표시 속도의 모의 검증은 `npm.cmd run verify:stream`으로 실행한다. 기존 Postman simulation은 JSON 채팅 계약 기준이므로 NDJSON fixture 갱신 전이다.
+최초·후속 NDJSON 실제 브라우저 검증: `npm.cmd run verify:ndjson` (5173 포트 프론트와 8080 백엔드 필요). 별도 임시 계정으로 실제 AI를 호출하고 검증 후 삭제한다. 스트림 파서·답변 표시 속도의 모의 검증은 `npm.cmd run verify:stream`으로 실행한다. 기존 Postman simulation은 JSON 채팅 계약 기준이므로 NDJSON fixture 갱신 전이다.
 
 브라우저 프로필·스크린샷·요약은 Git에서 제외한 `.artifacts.local/`에 저장한다. 인증 쿠키가 있을 수 있으므로 커밋하거나 공유하지 않는다. 비밀값은 `VITE_*` 환경변수에 넣지 않는다. 이번 변경과 검증 결과는 [현황 문서](frontend-plan.md)에 기록한다.

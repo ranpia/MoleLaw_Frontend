@@ -1,6 +1,71 @@
 # 프론트 작업 현황과 계획
 
-## 2026-10-24 실행 서버 NDJSON 명세 확인
+문서 정리일: 2026-10-26 (Asia/Seoul)
+
+## 현재 상태
+
+- 작업 브랜치는 `dev`이며 `origin/dev`를 추적한다.
+- 2026-10-26 원격 확인 시 `main`과 `dev`는 모두 `3abd260`이었다. `main` pull 결과는 이미 최신 상태였으며 이후 `dev`로 전환했다.
+- `origin/stream`의 `4a10816`을 2026-10-26 dev에 fast-forward 병합했다. 원격 dev에는 아직 푸시하지 않았다.
+- 아래 2026-10-23 검증 표는 과거 기록이다. 병합된 브랜치의 2026-10-24 후속 검증 기록은 다음 절을 우선한다. 현재 프론트 포트는 사용자 요청에 따라 5173이다.
+- 당시 검증 결과와 미해결 항목은 [중간 저장](checkpoint.md), 실행 방법은 [로컬 개발 안내](local-development.md)를 참고한다.
+
+## 작업 범위와 참조 기준
+
+모든 수정과 실행 환경 구성은 프론트 프로젝트 안에서 진행한다. 백엔드는 읽기 전용 참조 대상이다.
+
+백엔드 원격 조사 기준은 `ranpia/MoleLaw_backend`의 `dev`, 커밋 `0eedbb12481b3713f47d25a37ac669bbc5d0515c`였다. 이후 사용자가 실행한 `http://localhost:8080/v3/api-docs`에서 근거 조회 API와 `caseSearchRequested`, `allowCaseSearch` 필드를 확인해 실행 서버 계약을 기준으로 프론트를 수정했다. 과거 원격 조사에서 해당 기능이 없었다는 기록을 현재 구현 기준으로 사용하지 않는다. 이번 문서 정리에서는 백엔드 최신 상태를 다시 확인하지 않았다.
+
+## 구현된 범위
+
+- 공통 Axios 클라이언트, CSRF 조회·헤더 처리, 401 갱신 후 1회 재요청과 갱신 중복 방지.
+- 계정 API 경로와 가입 후 사용자 조회, 계정 변경·탈퇴·로그아웃 상태 처리.
+- 최초·후속 질문과 메시지 조회, 질문 길이 검증, 중복 전송 방지와 실패 복구.
+- 대화 목록 더 보기, 방 전환 시 오래된 응답 방어, 근거 인용·원문 보기와 판례 검색 승인.
+- 반응형 화면, 공통 스타일 정리, 로컬 폰트 적용.
+- Vite API·OAuth 프록시, 프론트 Docker 설정과 환경변수 예시.
+- 실제 API 검사·브라우저 검사 스크립트와 로컬 Postman 모의 계약.
+
+구현 여부와 검증 완료 여부는 구분한다. 특히 브라우저 로그아웃 403은 미해결이다.
+
+## 검증 현황
+
+2026-10-23 기록 기준이며 이번 문서 수정에서는 재실행하지 않았다.
+
+| 구분 | 결과 |
+| --- | --- |
+| 프로덕션 빌드 | `npm.cmd run build -- --configLoader runner` 통과 |
+| 린트 | UI·스토어 수정 당시 통과, 이후 추가된 검증 파일은 재린트 필요 |
+| 실제 API | 19개 검사 통과, 해당 검사 임시 계정 삭제 확인 |
+| 실제 브라우저 | 가입·프로필·새로고침 세션 유지·닉네임 변경·모바일 너비 확인, 로그아웃 403 |
+| 모의 브라우저 | 상태 저장 비동기 호출 수정 후 재실행 필요 |
+| 실제 AI 상담·근거 조회 | 성공 흐름 검증 전 |
+| OAuth·Docker·동시 탭·자동 만료 복구 | 검증 전 |
+
+기본 Vite 설정 로더와 개발 사전 번들링은 당시 도구의 상위 폴더 접근 제한으로 실패했다. 현재 환경에서도 재현되는지는 확인하지 않았다.
+
+## 다음 작업
+
+1. 실행 서버 계약과 현재 작업 트리를 확인한다.
+2. 브라우저 로그아웃 403의 CSRF 요청을 확인하고 인증 흐름을 재검증한다. 이전 실패 검사의 임시 계정 정리 여부도 확인한다.
+3. Postman simulation을 재실행해 정상 답변, 검색 승인, 422/503 오류, 중복 전송, 원문 표시를 확인한다.
+4. 필요한 실제 상담 흐름을 임시 계정으로 검증하고 계정을 삭제한다.
+5. 목록 20개 초과, 만료 복구·동시 탭, OAuth와 Docker 실행을 검증한다.
+6. 최종 lint/build와 화면 검증 후 결과를 문서에 반영한다.
+
+## 조사 근거
+
+아래 링크는 과거 조사 커밋에 고정된 참조이며 현재 실행 서버 계약을 대신하지 않는다.
+
+- [인증 API](https://github.com/ranpia/MoleLaw_backend/blob/0eedbb12481b3713f47d25a37ac669bbc5d0515c/src/main/java/com/MoleLaw_backend/auth/controller/AuthController.java)
+- [CSRF API](https://github.com/ranpia/MoleLaw_backend/blob/0eedbb12481b3713f47d25a37ac669bbc5d0515c/src/main/java/com/MoleLaw_backend/auth/controller/CsrfController.java)
+- [채팅 API](https://github.com/ranpia/MoleLaw_backend/blob/0eedbb12481b3713f47d25a37ac669bbc5d0515c/src/main/java/com/MoleLaw_backend/chat/controller/ChatRoomController.java)
+
+## Docker 실행 확인 — 2026-10-26
+
+현재 dev 작업 트리로 프론트 이미지를 다시 빌드하고 컨테이너를 실행했다. Vite 준비 로그와 http://localhost:5173 의 HTTP 200 응답을 확인했다. 백엔드 컨테이너는 변경하지 않았다. 이번 확인은 프론트 기동에 한정하며 인증·채팅·OAuth 전체 연동은 재검증하지 않았다.
+
+## 병합한 브랜치의 검증 기록 — 2026-10-24
 
 ### 구조 정리 및 후속 NDJSON 연결
 
@@ -14,167 +79,10 @@
 - `node scripts/browser-check.mjs ndjson` 실제 서버·브라우저 검증 통과: 최초·후속 NDJSON 200, 임시·최종 표시, 중복 전송 방지, 저장·새로고침 복원, 모바일, JS 예외 없음, 임시 계정 삭제 204. 산출물 `.artifacts.local/browser-ndjson-1792835092109/`.
 - 이전 JSON API용 Postman simulation fixture는 NDJSON 전환에 맞춘 갱신이 필요하다. 실제 서버 연동 결과와 모의 fixture 검증 결과를 혼동하지 않는다.
 
-### 연결 구현 및 실제 브라우저 검증 완료
+## 병합 후 확인 — 2026-10-26
 
-- 후속 UI 요청: 로딩 점의 상하 움직임을 더 선명하게 조정했다(1.4초 주기, 순차 지연). OS의 움직임 줄이기 설정 때문에 기존 애니메이션이 멈추던 문제는 사용자의 명시적 움직임 요청에 따라 로딩 점에 한해 3px의 느린 움직임으로 조정했다. 다른 모션 축소 설정은 유지한다.
+stream 병합 후 lint, 프로덕션 build(configLoader runner), verify:stream 모두 통과했다. 실제 서버 인증·AI 흐름은 이번에 재실행하지 않았다. 사용자 요청으로 Vite·Docker·브라우저 검사 기본 포트를 5173으로 유지했다. 이전 3000 검증 결과가 5173의 인증 성공을 보장하지는 않는다.
 
-- 새 상담을 `POST /api/chat-rooms/ndjson`에 연결했다. fetch 스트림의 UTF-8 청크·줄 경계를 처리하고, progress/전체 info/임시 delta를 표시한 뒤 completed.room으로 저장된 메시지를 반영한다. 오류·미완료 연결 종료 시 임시 결과를 제거하며 상담 POST 자동 재시도는 하지 않는다.
-- 로딩 점 애니메이션과 움직임 줄이기 설정 대응을 추가했다. 후속 질문은 기존 JSON API를 유지한다.
-- 실제 서버는 Origin `http://localhost:3000`을 허용하고 `http://localhost:5173`을 403으로 거절했다. Vite 개발·preview, 프론트 Docker 포트와 안내를 3000으로 맞췄다. 백엔드 보안 정책과 프록시 Origin은 변경하지 않았다.
-- `node scripts/browser-check.mjs ndjson` 통과: 실제 가입·CSRF·프록시 NDJSON 200, 로딩 애니메이션, 서버 진행·근거·답변 조각·최종 답변 표시, 중복 전송 방지, 답변·근거 저장, 새로고침 후 이력 복원, 390px 화면, 미처리 JavaScript 오류 없음, 임시 계정 삭제 204.
-- 검증 산출물: `.artifacts.local/browser-ndjson-1792833608163/`. 첫 애니메이션 검증은 OS의 움직임 줄이기 설정으로 실패했으며 해당 임시 계정도 삭제했다. 검증 브라우저에 no-preference를 명시한 재실행에서 통과했다.
-- `npm.cmd run build -- --configLoader runner`, `npm.cmd run lint` 통과. 이번 결과는 최초 상담 NDJSON 흐름에 한정하며 이전 체크포인트의 로그아웃·후속 질문·Docker 실행 등 미해결 항목 전체가 해결된 것은 아니다.
-- 프론트 preview를 `http://localhost:3000`에 실행해 사용자 확인을 준비했다.
+## 사용자 연동 확인 및 게시 — 2026-10-26
 
-- 사용자 요청으로 `http://localhost:8080/v3/api-docs`를 직접 조회했다. 커밋 여부와 무관하게 현재 실행 서버 명세를 확인했다.
-- `POST /api/chat-rooms/ndjson`: `{ content }` 요청, 검증·저장 후 `completed.response`와 `completed.room` 반환.
-- `POST /api/legal-answers/ndjson`: `{ query }` 요청, 저장 없이 `completed.response` 반환.
-- 두 경로 모두 Access 쿠키, CSRF 헤더와 `Accept: application/x-ndjson` 필요. 이벤트는 progress/info/answer_delta/completed/error/heartbeat이며 info는 전체 교체, delta는 임시 누적, completed는 최종 결과로 교체한다.
-- 시작 후 오류는 HTTP 200의 error 이벤트로 전달된다. 임시 답변 폐기와 자동 재시도 금지가 필요하다. heartbeat는 10초 간격이다.
-- 현재 프론트 questionStore는 기존 JSON API를 사용하며 스트리밍 수신 구현은 없다. 다음 구현 시 fetch 스트림의 줄 단위 파싱과 기존 인증·CSRF 처리를 연결해야 한다.
-- 이번 확인은 실행 서버 OpenAPI 조회와 프론트 소스 대조다. 인증된 실제 AI 스트림 호출 및 프론트 구현 변경은 수행하지 않았다. 기존 중간 저장의 미해결 항목은 유지한다.
-
-기록일: 2026-10-23 (Asia/Seoul)
-
-> 후속 구현을 진행하다 사용자 요청으로 일시 중지했다. **현재 상태와 미해결 오류는 [중간 저장](checkpoint.md)이 최신**이다. 아래 조사 내용은 당시 원격 커밋 기준의 기록이며, 현재 실행 서버의 계약과 차이가 있다.
-
-## 사용자 요청과 현재 상태
-
-1. 프론트와 백엔드가 있는 MoleLaw 프로젝트에서 프론트 작업을 담당한다.
-2. 백엔드를 참조하되 모든 파일 작업은 프론트 프로젝트 안에서만 한다.
-3. 변경된 백엔드에 맞추기 전에 프론트 구조를 파악한다.
-4. GitHub `ranpia/MoleLaw_backend`의 `dev`와 현재 프론트를 비교한다.
-5. 프론트와 백엔드 모두 로컬 Docker 실행을 고려한다.
-6. 현재까지 상황과 작업 계획을 문서로 저장한다.
-
-현재 완료한 작업은 프론트 소스 조사, 원격 백엔드 API 대조, 이 문서와 AGENTS.md 작성이다. 앱 코드·환경·배포 설정은 변경하지 않았다. Docker 실행·빌드·린트·실제 API 요청 검증은 하지 않았다.
-
-## 프론트 구조와 화면 흐름
-
-- 기술: React 19.1, TypeScript 5.8, Vite 6, Emotion, Zustand, Axios, React Router 7, react-markdown.
-- `main.tsx` → `App.tsx` → 인증 처리와 Router → `/Main`의 `MainView`.
-- `/`는 `/Main`으로 이동한다. 로그인·회원가입·약관·설정은 별도 URL 대신 패널 상태로 전환한다.
-- 미인증이면 메인 화면과 함께 로그인 패널을 렌더링한다.
-- 사이드바는 대화 목록·조회·삭제, 법전 외부 링크, 설정·프로필 패널을 제공한다.
-- `MainView`가 질문을 먼저 메시지 상태에 추가하고, 선택된 방 유무에 따라 최초·후속 요청을 구분한다.
-- 답변과 INFO를 Markdown으로 출력하고 새 대화는 페이지 새로고침으로 처리한다.
-
-| 파일 | 현재 책임 |
-| --- | --- |
-| `src/store/auth/authStore.ts` | 로그인·가입·내 정보·갱신·로그아웃·탈퇴·계정 변경 |
-| `src/store/chat/questionStore.ts` | 최초·후속 질문, 로딩·오류 상태 |
-| `src/store/data/dataStore.ts` | 방 목록·조회·삭제·선택 ID |
-| `src/store/data/messageStore.ts` | 메시지 배열 |
-| `src/store/utils/toastStore.ts` | 토스트 상태 |
-| `src/store/types.ts` | 공통 타입; 사용자 타입은 현재 any |
-| `src/store/constants.ts` | VITE_API_BASE_URL, VITE_OAUTH2_BASE_URL |
-
-API 요청은 각 Zustand 스토어에서 직접 수행한다. 공통 Axios 클라이언트와 CSRF 처리 모듈은 없다.
-
-## 백엔드 확인 기준
-
-- [원격 dev](https://github.com/ranpia/MoleLaw_backend/tree/dev)
-- 확인 커밋: [`0eedbb12481b3713f47d25a37ac669bbc5d0515c`](https://github.com/ranpia/MoleLaw_backend/commit/0eedbb12481b3713f47d25a37ac669bbc5d0515c)
-- 커밋 시각: 2026-10-23 15:23:03 KST.
-- 메시지: Merge pull request #8 / 법령 수집·본문 읽기와 검증된 RAG 흐름 완성.
-- 확인 당시 main: `ec9d87bc3b960ac2a6e161635774dde61d73a815` (2026-10-13).
-- 로컬 백엔드 HEAD: `c50f4fd194cda49a479051e3583005698e1859bb`.
-- 로컬은 원격과 다른 상태이며 원격 API로 두 커밋 비교 요청 시 404였다. 로컬이 원격보다 단순히 이전 버전이라고 단정하지 않는다.
-- 원격 소스를 커밋으로 고정해 직접 읽었다. 백엔드 checkout·pull·fetch나 파일 변경은 하지 않았다.
-
-## API 불일치
-
-프론트 경로는 `VITE_API_BASE_URL` 아래 상대 경로다. 아래 표는 해당 값에 `/api`가 포함되는 구성을 전제로 하며 현재 환경변수 값은 미확인이다.
-
-| 기능 | 현재 프론트 경로 | 원격 dev의 전체 경로 |
-| --- | --- | --- |
-| 내 정보 | GET /auth/me | GET /api/users/me |
-| 탈퇴 | DELETE /auth/me | DELETE /api/users/me |
-| 닉네임 변경 | PATCH /auth/nickname | PATCH /api/users/me/nickname |
-| 비밀번호 변경 | PATCH /auth/password | PATCH /api/users/me/password |
-| 갱신 | POST /auth/reissue | POST /api/auth/refresh |
-| 최초 질문 | POST /chat-rooms/first-message | POST /api/chat-rooms |
-| 메시지 조회 | GET /chat-rooms/{id} | GET /api/chat-rooms/{id}/messages |
-
-로그인·가입·로그아웃, 대화 목록·삭제·후속 질문은 경로 패턴이 유지되지만 CSRF와 인증 처리가 필요하다.
-
-### 인증·응답 계약
-
-- GET `/api/auth/csrf` → `{ token, headerName }`. 쿠키를 유지하고 상태 변경 요청의 `X-XSRF-TOKEN` 헤더에 token을 보낸다. 로그인·가입·로그아웃·갱신도 대상이다.
-- 운영 CSRF 쿠키는 HttpOnly다. JavaScript 쿠키 읽기에 의존하지 않고 응답 JSON을 사용한다.
-- 쿠키 인증을 사용하면 credentials가 필요하며, 교차 출처인 경우 백엔드가 허용한 Origin이어야 한다.
-- Access 수명은 최대 5분. 현재 프론트의 14분 갱신 간격은 맞지 않는다.
-- Refresh는 회전하며 이전 값 재사용 시 세션 family가 폐기된다. 갱신의 중복 호출·무조건 재시도를 피하는 설계가 필요하다.
-- 현재 부팅 흐름은 내 정보 조회 실패 후 Refresh 복구가 없다. 인증 초기화 대기 중 로그인 패널이 표시될 여지도 있다.
-- 로그인 성공: 원본 `{ accessToken }`; 내 정보: `{ success: true, data: { email, nickname } }`.
-- 가입 성공은 사용자 객체가 아닌 성공 문자열 envelope다. 프론트의 `user = res.data` 처리를 수정해야 한다.
-- 갱신: `{ success: true, data: { accessToken } }`; 닉네임·비밀번호 변경은 200 빈 본문; 탈퇴·방 삭제는 204 빈 본문.
-- 일반 업무 오류: `{ success: false, error: { status, code, message } }`. 현재 질문 스토어의 `data.message`는 불일치한다.
-- 인증 필터 401은 `{ error: "Unauthorized" }`, 일부 보안 403은 공통 JSON 계약이 없으므로 별도 방어 처리가 필요하다.
-- 입력 검증: 가입 닉네임 2~50자, 비밀번호 8~72자 및 UTF-8 72바이트 이하, 이메일 최대 254자. 로그인 비밀번호에 가입 최소 8자 규칙을 재적용하지 않는다.
-- 비밀번호 변경은 Refresh family를 폐기하므로 성공 이후 재로그인 안내·상태 처리를 고려한다.
-
-### 채팅·화면 계약
-
-- 방 생성 응답 `{ id, messages }`, 메시지 조회는 배열, 후속 답변은 단일 메시지다. 모든 성공 응답을 일괄 envelope로 해석하면 안 된다.
-- 메시지는 `sender`, `content`, UTC `timestamp`를 갖는다. sender는 USER/BOT/INFO다.
-- 질문은 Unicode 코드포인트 최대 2000자, UTF-8 최대 32KiB다. 프론트에 길이 검증과 안내가 없다.
-- 목록은 page=0, size=20 기본이며 size 최대 100이다. 현재 프론트에는 더 보기 처리가 없다.
-- 최초 상담은 검색·필요 시 수집과 색인·충분성 판단·답변·저장을 동기로 수행한다. SSE는 제공하지 않는다.
-- 실제로 알 수 없는 서버 진행 단계를 퍼센트나 확정된 단계처럼 표시하지 않는다. 장시간 대기·중복 전송 방지·실패 후 복구를 설계한다.
-- 답변 본문은 `[[UUID]]`로 근거를 인용한다. INFO에는 서버가 만든 근거 ID·제목·출처 URL·본문 Markdown이 들어간다.
-- 원격 기준에는 별도 근거 조회 컨트롤러가 없다. INFO를 바탕으로 읽기 쉬운 근거 번호, 접기·펼치기, 출처 링크 연결을 검토한다.
-- 로컬에 있는 `caseSearchRequested`, `allowCaseSearch`, 별도 evidence API는 확인한 원격 dev에 없다. 현재 구현 대상으로 삼지 않는다.
-- 후속 질문은 최초 고정 근거와 대화를 사용하며 새로운 검색·수집을 하지 않는다.
-- 근거 스냅샷이 없는 과거 방의 후속 질문은 실패한다. 자동 이관 API가 없으므로 새 상담 시작 안내가 필요하다.
-- 주요 오류: 422 EVIDENCE_INSUFFICIENT, 503 RETRIEVAL_UNAVAILABLE / RETRIEVAL_BUSY, GPT_API_FAILURE.
-- 실패하면 방 또는 해당 질문·답변을 저장하지 않는다. 현재 프론트가 먼저 추가한 사용자 메시지와 서버 저장 상태가 어긋나지 않도록 복구해야 한다.
-
-## 프론트 자체 개선 지점
-
-- 질문 오류를 화면에 표시하지 않는다. loading 중 추가 전송을 차단하지 않는다.
-- 로그아웃·탈퇴 시 방 목록·메시지·선택 상태 초기화가 없다.
-- 선택된 방 삭제 후 현재 대화 상태를 정리하는 처리가 없다.
-- 메인 940px, 입력창 1000px, 로그인 500px, 설정 750px 등 고정 너비가 많다.
-- Vite 기본 App.css·index.css와 Emotion 전역 스타일이 함께 남아 있다.
-- 사용자 any, 스토어 비동기 반환 타입, 실패 시 chatRooms를 undefined로 설정하는 부분을 정리해야 한다.
-- 새 대화는 새로고침 대신 명시적인 상태 초기화로 전환하는 편이 적절하다.
-
-## 단계별 실행 계획
-
-- [x] 프론트 구조·화면·스토어·설정 조사.
-- [x] 원격 dev 커밋 확인과 인증·채팅 계약 대조.
-- [x] 작업 지침 및 현황 문서 저장.
-- [ ] 1. 구현 착수 시 dev 최신 커밋 재확인. 환경변수 경로 기준과 프론트 Docker 실행 방식 확정.
-- [ ] 2. 공통 API 클라이언트, 응답·오류 타입, CSRF 조회·헤더 처리를 도입.
-- [ ] 3. 계정 API 경로, 가입 후 인증 조회, 만료 복구와 갱신 중복 방지, 로그아웃·탈퇴 상태 초기화 수정.
-- [ ] 4. 최초 질문·메시지 조회 경로, 요청 검증, 로딩·오류·실패 메시지 복구, 새 대화·방 삭제 상태 처리 수정.
-- [ ] 5. UUID 인용과 INFO를 활용한 근거 표시, 장시간 대기 안내, 과거 방 실패 안내 구현.
-- [ ] 6. 대화 목록 더 보기, 반응형 화면과 전역 CSS 정리.
-- [ ] 7. 프론트 디렉터리 안에 Docker·프록시·비밀값 없는 환경변수 예시와 실행 안내 구성. 구체적인 개발/빌드 제공 방식은 아직 미확정.
-- [ ] 8. build·lint, 브라우저와 로컬 Docker 연동을 검증하고 결과 기록.
-
-단계는 의존 관계 기준이며 일부 환경 구성은 연동 검증에 필요하면 앞당긴다. 현재 요청은 현황·계획 저장까지이며 실제 구현은 아직 시작하지 않았다.
-
-## 검증 계획과 남은 확인
-
-- 프론트 빌드·린트 및 기존 오류와 신규 오류 구분.
-- CSRF 없는 요청 실패와 정상 CSRF 요청 성공, 로그인·가입·로그아웃·닉네임·비밀번호·탈퇴 흐름.
-- 새로고침 시 만료 복구, 갱신 요청 중복, Refresh 실패 시 로그인 안내.
-- 최초·후속 질문, 재접속 후 이력 조회, 새 대화, 삭제, 목록 더 보기.
-- 근거 인용·출처 표시, 422/503/401/403 처리, 중복 전송과 서버 저장 실패 시 화면 상태.
-- 작은 화면·긴 본문·긴 답변에서 레이아웃과 스크롤 확인.
-- Docker의 브라우저 주소·내부 네트워크·쿠키·프록시·OAuth 리디렉션 확인.
-- 테스트 파일·테스트 스크립트·node_modules·환경변수 파일은 조사 시 확인되지 않았다. 아직 어떤 실행 검증도 통과했다고 보고하지 않는다.
-
-## 주요 원격 근거
-
-아래 링크는 조사 기준 커밋에 고정했다.
-
-- [인증 API](https://github.com/ranpia/MoleLaw_backend/blob/0eedbb12481b3713f47d25a37ac669bbc5d0515c/src/main/java/com/MoleLaw_backend/auth/controller/AuthController.java)
-- [사용자 API](https://github.com/ranpia/MoleLaw_backend/blob/0eedbb12481b3713f47d25a37ac669bbc5d0515c/src/main/java/com/MoleLaw_backend/user/controller/UserController.java)
-- [CSRF API](https://github.com/ranpia/MoleLaw_backend/blob/0eedbb12481b3713f47d25a37ac669bbc5d0515c/src/main/java/com/MoleLaw_backend/auth/controller/CsrfController.java)
-- [채팅 API](https://github.com/ranpia/MoleLaw_backend/blob/0eedbb12481b3713f47d25a37ac669bbc5d0515c/src/main/java/com/MoleLaw_backend/chat/controller/ChatRoomController.java)
-- [보안 설정](https://github.com/ranpia/MoleLaw_backend/blob/0eedbb12481b3713f47d25a37ac669bbc5d0515c/src/main/java/com/MoleLaw_backend/auth/config/SecurityConfig.java)
-- [최초 상담](https://github.com/ranpia/MoleLaw_backend/blob/0eedbb12481b3713f47d25a37ac669bbc5d0515c/docs/initial-consultation.md)
-- [고정 근거와 인용](https://github.com/ranpia/MoleLaw_backend/blob/0eedbb12481b3713f47d25a37ac669bbc5d0515c/docs/room-evidence.md)
+사용자가 5173에서 인증과 후속 NDJSON의 정상 동작을 직접 확인했다. 이는 사용자 수동 확인 결과이며 에이전트의 추가 자동 검사 결과는 아니다. Docker 재빌드·기동과 HTTP 200도 확인했다. stream 병합 및 5173 유지 설정, 문서 정리를 dev에 커밋해 origin/dev로 푸시한다.
