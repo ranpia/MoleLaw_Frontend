@@ -64,8 +64,12 @@ export async function streamFirstAnswer(content: string, onEvent: (event: Answer
   return room;
 }
 
-export async function streamFollowUp(roomId: number, content: string, allowCaseSearch: boolean, onEvent: (event: AnswerEvent) => void, signal: AbortSignal): Promise<Message> {
-  const { messageResult } = await streamAnswer(`/chat-rooms/${roomId}/messages/ndjson`, { content, allowCaseSearch }, onEvent, signal);
+export async function streamFollowUp(roomId: number, content: string, allowCaseSearch: boolean, onEvent: (event: AnswerEvent) => void, signal: AbortSignal, caseSearchLawEvidenceIds?: string[]): Promise<Message> {
+  if (!allowCaseSearch && caseSearchLawEvidenceIds?.length) throw new Error("법령 선택은 판례 검색 승인 시에만 보낼 수 있습니다.");
+  const { messageResult } = await streamAnswer(`/chat-rooms/${roomId}/messages/ndjson`, {
+    content, allowCaseSearch,
+    ...(allowCaseSearch && caseSearchLawEvidenceIds !== undefined ? { caseSearchLawEvidenceIds: [...new Set(caseSearchLawEvidenceIds)] } : {}),
+  }, onEvent, signal);
   if (!messageResult || messageResult.sender !== "BOT" || typeof messageResult.content !== "string") throw new Error("저장된 후속 답변을 확인하지 못했습니다. 상담 기록을 확인해 주세요.");
   return messageResult;
 }

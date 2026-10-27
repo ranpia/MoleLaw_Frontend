@@ -10,10 +10,14 @@ import { createDraftWriter } from "./draftWriter";
 let activeStream: AbortController | undefined;
 
 export const useQuestionStore = create<QuestionStore>((set, get) => {
-  const send = async (content: string, roomId: number | null, allowCaseSearch = false) => {
+  const send = async (content: string, roomId: number | null, allowCaseSearch = false, caseSearchLawEvidenceIds?: string[]) => {
     if (get().loading || useDataStore.getState().roomLoading) return false;
     const invalid = validateQuestion(content);
     if (invalid) { set({ error: invalid }); return false; }
+    if (caseSearchLawEvidenceIds?.length && (!allowCaseSearch || caseSearchLawEvidenceIds.some(id =>
+      !useDataStore.getState().evidence.some(item => item.id === id && item.kind.startsWith("LAW_"))))) {
+      set({ error: "현재 상담방의 법령 근거를 선택하고 판례 검색을 승인해 주세요." }); return false;
+    }
     const version = getSessionVersion();
     const previous = useMessageStore.getState().messages;
     set({ loading: true, error: null, progress: "질문을 확인하고 있습니다…", draft: "", streamInfo: "" });
@@ -37,7 +41,7 @@ export const useQuestionStore = create<QuestionStore>((set, get) => {
         useMessageStore.getState().setMessages(data.messages);
         await useDataStore.getState().loadEvidence(data.id);
       } else {
-        const data = await streamFollowUp(roomId, content, allowCaseSearch, onEvent, controller.signal);
+        const data = await streamFollowUp(roomId, content, allowCaseSearch, onEvent, controller.signal, caseSearchLawEvidenceIds);
         await writer.drain();
         if (version !== getSessionVersion()) return false;
         useMessageStore.getState().addMessage(data);
@@ -56,10 +60,10 @@ export const useQuestionStore = create<QuestionStore>((set, get) => {
   return {
     loading: false, error: null, progress: "", draft: "", streamInfo: "", clearError: () => set({ error: null }),
     askQuestion: (content) => send(content, null),
-    continueQuestion: (content, allowCaseSearch = false) => {
+    continueQuestion: (content, allowCaseSearch = false, caseSearchLawEvidenceIds) => {
       const id = useDataStore.getState().selectedChatRoomID;
       if (id === null) return Promise.resolve(false);
-      return send(content, id, allowCaseSearch);
+      return send(content, id, allowCaseSearch, caseSearchLawEvidenceIds);
     },
   };
 });

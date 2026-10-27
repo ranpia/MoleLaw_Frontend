@@ -136,3 +136,9 @@ postman request http://localhost:8080/api/auth/csrf --no-report-events --script-
 
 실제 서버 추천 검사(임시 계정 생성·삭제, 실제 모델 1회 포함): `node scripts/verify-local-api.mjs --suggestions`.
 모의 브라우저 검사: Postman simulation과 5174 프론트를 새로 실행하고 `node scripts/browser-check.mjs suggestions`를 실행한다. 첫·후속 스트림은 테스트용 확정 응답이며 실제 AI 상담·검색 품질을 검증하지 않는다.
+
+## 판례 검색 시 법령 선택
+
+판례 검색 승인 카드에서 같은 상담방의 법령을 선택할 수 있다. 기본 선택은 없고 개수 제한도 없다. 선택하지 않으면 기존 질문만으로 검색한다. 선택한 법령은 이번 승인에만 사용한다.
+
+Postman simulation과 5174 프론트를 새로 실행한 뒤 `node scripts/browser-check.mjs cases`로 법령 다중 선택·미선택 승인·동의 미승계를 검사한다. 실제 서버의 입력 검증은 `npm.cmd run verify:api`에 포함되며 외부 판례 검색은 호출하지 않는다.

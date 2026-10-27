@@ -6,7 +6,7 @@ import { randomUUID } from 'node:crypto';
 
 // No browser package needed: isolated headless Chrome via the DevTools protocol.
 const mode = process.argv[2] || 'live';
-const origin = ['simulation', 'account', 'suggestions'].includes(mode) ? 'http://localhost:5174' : 'http://localhost:5173';
+const origin = ['simulation', 'account', 'suggestions', 'cases'].includes(mode) ? 'http://localhost:5174' : 'http://localhost:5173';
 const directory = resolve('.artifacts.local', `browser-${mode}-${Date.now()}`);
 await mkdir(directory, { recursive: true });
 const chrome = spawn(process.env.CHROME_PATH || 'C:/Program Files/Google/Chrome/Application/chrome.exe', [
@@ -68,7 +68,43 @@ try {
   await send('Network.enable');
   await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'no-preference' }] });
   await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 1000, deviceScaleFactor: 1, mobile: false });
-  if (mode === 'suggestions') {
+  if (mode === 'cases') {
+    await until(() => exists('.room-select'), 'room list');
+    await evaluate("document.querySelector('.room-select').click()");
+    await until(() => evaluate("document.querySelectorAll('.case-search-laws input').length === 6"), 'law choices');
+    assert.equal(await evaluate("document.querySelectorAll('.case-search-laws input:checked').length"), 0);
+    assert.equal(await evaluate("document.querySelector('.case-search-laws').textContent.includes('기존 판례')"), false);
+    await evaluate("document.querySelectorAll('.case-search-laws input').forEach(el=>el.click())");
+    await clickText('지금은 검색하지 않기');
+    assert.deepEqual(await (await fetch('http://127.0.0.1:4900/backend/__fixture/requests')).json(), []);
+    pass('only room LAW_ evidence offered, none preselected; declining sends no search');
+    const ask = async content => { await value('#question', content); await evaluate("document.querySelector('.composer').requestSubmit()"); await until(() => evaluate("!document.querySelector('#question').disabled"), 'turn complete'); };
+    await ask('판례 검색 요청');
+    await until(() => exists('.case-search-laws'), 'new consent');
+    assert.equal(await evaluate("document.querySelectorAll('.case-search-laws input:checked').length"), 0);
+    await evaluate("document.querySelectorAll('.case-search-laws input').forEach(el=>el.click())");
+    await clickText('판례 검색 승인');
+    await until(() => evaluate("!document.querySelector('#question').disabled && !document.querySelector('.consent-card')"), 'approved search');
+    let posts = await (await fetch('http://127.0.0.1:4900/backend/__fixture/requests')).json();
+    assert.equal(posts.at(-1).allowCaseSearch, true);
+    assert.equal(posts.at(-1).caseSearchLawEvidenceIds.length, 6);
+    assert.equal(new Set(posts.at(-1).caseSearchLawEvidenceIds).size, 6);
+    pass('all six selected laws sent through actual follow-up NDJSON; no selection cap');
+    await ask('일반 후속 질문');
+    posts = await (await fetch('http://127.0.0.1:4900/backend/__fixture/requests')).json();
+    assert.equal(posts.at(-1).allowCaseSearch, false);
+    assert.equal(posts.at(-1).caseSearchLawEvidenceIds, undefined);
+    pass('consent and law selection not reused on ordinary follow-up');
+    await ask('판례 검색 요청');
+    await until(() => exists('.case-search-laws'), 'next consent');
+    assert.equal(await evaluate("document.querySelectorAll('.case-search-laws input:checked').length"), 0);
+    await clickText('판례 검색 승인');
+    await until(() => evaluate("!document.querySelector('#question').disabled && !document.querySelector('.consent-card')"), 'unfiltered search');
+    posts = await (await fetch('http://127.0.0.1:4900/backend/__fixture/requests')).json();
+    assert.equal(posts.at(-1).allowCaseSearch, true);
+    assert.deepEqual(posts.at(-1).caseSearchLawEvidenceIds, []);
+    pass('next consent starts empty; empty selection searches using original request');
+  } else if (mode === 'suggestions') {
     await until(() => exists('.welcome'), 'new consultation');
     await value('#question', '사고 책임을 확인하고 싶습니다.');
     await clickText('질문 다듬기');

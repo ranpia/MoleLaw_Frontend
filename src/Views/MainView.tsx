@@ -5,6 +5,7 @@ import ChattingBar from "../Components/Feature/ChattingSystem/ChattingBar";
 import EvidencePanel from "../Components/Feature/ChattingSystem/EvidencePanel";
 import ConversationMessage from "../Components/Feature/ChattingSystem/ConversationMessage";
 import LoadingIndicator from "../Components/UI/LoadingIndicator";
+import CaseSearchConsent from "../Components/Feature/ChattingSystem/CaseSearchConsent";
 
 export default function MainView() {
   const { selectedChatRoomID, roomLoading, evidence, newChat } = useDataStore();
@@ -25,9 +26,9 @@ export default function MainView() {
       lastScrollTop.current = element.scrollTop;
     }
   }, [messages, loading, roomLoading, draft, progress, streamInfo, error]);
-  const send = (content: string, allowCaseSearch = false) => {
+  const send = (content: string, allowCaseSearch = false, caseSearchLawEvidenceIds?: string[]) => {
     followAnswer.current = true;
-    return selectedChatRoomID === null ? askQuestion(content) : continueQuestion(content, allowCaseSearch);
+    return selectedChatRoomID === null ? askQuestion(content) : continueQuestion(content, allowCaseSearch, caseSearchLawEvidenceIds);
   };
   const last = messages[messages.length - 1];
   const consentKey = `${selectedChatRoomID}:${messages.length}`;
@@ -50,11 +51,9 @@ export default function MainView() {
           </div>}
           {messages.map((message, index) => <ConversationMessage key={index} message={message} evidence={evidence} onEvidence={setActiveEvidence} />)}
           <div ref={setSuggestionsTarget} />
-          {consent && <section className="consent-card" aria-label="판례 검색 동의">
-            <p>관련 판례를 추가로 검색할까요?</p><small>승인하면 이번 질문에 한해 외부 판례 검색과 본문 수집을 진행합니다.</small>
-            <div className="button-row"><button disabled={loading || roomLoading} className="primary" onClick={() => void send("네, 관련 판례를 검색해 주세요.", true)}>판례 검색 승인</button>
-              <button disabled={loading || roomLoading} onClick={() => setDeclinedAt(consentKey)}>지금은 검색하지 않기</button></div>
-          </section>}
+          {consent && <CaseSearchConsent key={consentKey} evidence={evidence} disabled={loading || roomLoading}
+            onApprove={ids => void send("네, 관련 판례를 검색해 주세요.", true, ids)}
+            onDecline={() => setDeclinedAt(consentKey)} />}
           {loading && streamInfo && <ConversationMessage message={{ sender: "INFO", content: streamInfo }} evidence={evidence} onEvidence={setActiveEvidence} pending />}
           {loading && draft && <ConversationMessage message={{ sender: "BOT", content: draft }} evidence={evidence} onEvidence={setActiveEvidence} pending />}
           {(loading || roomLoading) && <LoadingIndicator>{roomLoading ? "상담 기록을 불러오고 있습니다…" : progress || "근거를 확인하고 답변을 준비하고 있습니다…"}

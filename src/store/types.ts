@@ -19,7 +19,7 @@ export interface QuestionStore {
   loading: boolean; error: string | null;
   progress: string; draft: string; streamInfo: string;
   askQuestion: (content: string) => Promise<boolean>;
-  continueQuestion: (content: string, allowCaseSearch?: boolean) => Promise<boolean>;
+  continueQuestion: (content: string, allowCaseSearch?: boolean, caseSearchLawEvidenceIds?: string[]) => Promise<boolean>;
   clearError: () => void;
 }
 export interface AuthStore {

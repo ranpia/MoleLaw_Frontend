@@ -72,6 +72,8 @@ try {
   }
   check('suggestions do not create rooms', await request('GET', '/chat-rooms?page=0&size=20'), 200, d => assert.deepEqual(d, []));
   check('evidence ownership / missing room', await request('GET', '/chat-rooms/9223372036854775807/evidence'), 404);
+  check('law selection without consent rejected before streaming', await request('POST', '/chat-rooms/9223372036854775807/messages/ndjson', { content: '판례 검색', allowCaseSearch: false, caseSearchLawEvidenceIds: ['00000000-0000-0000-0000-000000000001'] }), 400);
+  check('malformed law UUID rejected before streaming', await request('POST', '/chat-rooms/9223372036854775807/messages/ndjson', { content: '판례 검색', allowCaseSearch: true, caseSearchLawEvidenceIds: ['invalid'] }), 400);
   check('nickname update empty body', await request('PATCH', '/users/me/nickname', { newNickname: '프론트검증변경' }), 200, (d) => assert.equal(d, ''));
   check('updated profile', await request('GET', '/users/me'), 200, (d) => assert.equal(d.data.nickname, '프론트검증변경'));
   check('refresh response envelope', await request('POST', '/auth/refresh'), 200, (d) => assert.ok(d.data.accessToken));

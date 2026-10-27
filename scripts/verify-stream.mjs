@@ -43,6 +43,17 @@ try {
   assert.equal(requests[0].url, '/api/chat-rooms/7/messages/ndjson');
   assert.deepEqual(JSON.parse(requests[0].body), { content: '추가 질문', allowCaseSearch: false });
   console.log('PASS follow-up completion and explicit consent payload');
+  const lawIds = Array.from({ length: 6 }, (_, i) => `00000000-0000-0000-0000-${String(i + 1).padStart(12, '0')}`);
+  response([{ type: 'completed', messageResult }]);
+  await streamFollowUp(7, '승인', true, () => {}, new AbortController().signal, [...lawIds, lawIds[0]]);
+  assert.deepEqual(JSON.parse(requests[0].body).caseSearchLawEvidenceIds, lawIds);
+  response([{ type: 'completed', messageResult }]);
+  await streamFollowUp(7, '승인', true, () => {}, new AbortController().signal, []);
+  assert.deepEqual(JSON.parse(requests[0].body).caseSearchLawEvidenceIds, []);
+  requests = [];
+  await assert.rejects(streamFollowUp(7, '일반 질문', false, () => {}, new AbortController().signal, lawIds), /승인/);
+  assert.equal(requests.length, 0);
+  console.log('PASS optional law context: uncapped selection, deduplication, empty selection and consent required');
 
   response([{ type: 'answer_delta', delta: '임시' }, { type: 'error', message: '근거 부족' }]);
   await assert.rejects(streamFirstAnswer('질문', () => {}, new AbortController().signal), /근거 부족/);

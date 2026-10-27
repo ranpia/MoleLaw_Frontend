@@ -4,7 +4,9 @@
  */
 const http = require('http');
 const uuid = '00000000-0000-0000-0000-000000000001';
-const evidence = { id: uuid, kind: 'LAW', sourceId: '123', title: '민법 제2조(신의성실)', sourceUrl: 'https://www.law.go.kr/법령/민법/제2조', lawId: '001706', effectiveDate: '20260101' };
+const evidence = { id: uuid, kind: 'LAW_ARTICLE', sourceId: '123', title: '민법 제2조(신의성실)', sourceUrl: 'https://www.law.go.kr/법령/민법/제2조', lawId: '001706', effectiveDate: '20260101' };
+const lawEvidence = [evidence, ...Array.from({ length: 5 }, (_, i) => ({ ...evidence, id: `00000000-0000-0000-0000-${String(i + 2).padStart(12, '0')}`, title: `선택 가능한 법령 ${i + 2}` }))];
+const caseEvidence = { ...evidence, id: '00000000-0000-0000-0000-000000000099', kind: 'CASE_BODY', title: '기존 판례', lawId: null };
 const bot = (content, consent = false) => ({ sender: 'BOT', content, timestamp: '2026-10-23T07:00:00', caseSearchRequested: consent });
 http.createServer(async (req, res) => {
   const url = new URL(req.url, 'http://localhost');
@@ -41,7 +43,7 @@ http.createServer(async (req, res) => {
     return send(200, state.rooms.slice(page * size, (page + 1) * size));
   }
   if (path === '/api/chat-rooms/42/messages' && req.method === 'GET') return send(200, state.messages);
-  if (path === '/api/chat-rooms/42/evidence' && req.method === 'GET') return send(200, [evidence]);
+  if (path === '/api/chat-rooms/42/evidence' && req.method === 'GET') return send(200, [...lawEvidence, caseEvidence]);
   if (path === `/api/chat-rooms/42/evidence/${uuid}` && req.method === 'GET') return send(200, { evidence, content: '<b>원문 표기</b> 권리의 행사와 의무의 이행은 신의에 좇아 성실히 하여야 한다.', caseInfo: null });
   if (path === '/api/legal-answers/suggestions' && req.method === 'POST') {
     if (req.headers['x-xsrf-token'] !== 'fixture-token') return send(403);
@@ -55,8 +57,13 @@ http.createServer(async (req, res) => {
   if (req.method === 'POST' && (path === '/api/chat-rooms/ndjson' || path === '/api/chat-rooms/42/messages/ndjson')) {
     if (req.headers['x-xsrf-token'] !== 'fixture-token') return send(403);
     const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-    state.posts.push({ path, content: body.content, allowCaseSearch: body.allowCaseSearch });
-    const answer = bot('근거를 확인한 답변입니다.');
+    state.posts.push({ path, content: body.content, allowCaseSearch: body.allowCaseSearch, caseSearchLawEvidenceIds: body.caseSearchLawEvidenceIds });
+    const ids = body.caseSearchLawEvidenceIds;
+    if (ids?.length && (!body.allowCaseSearch || ids.some(id => !lawEvidence.some(item => item.id === id)))) {
+      res.writeHead(200, { 'Content-Type': 'application/x-ndjson' });
+      return res.end(JSON.stringify({ type: 'error', code: 'INVALID_REQUEST', message: '현재 상담방의 법령을 선택해 주세요.' }) + '\n');
+    }
+    const answer = bot('근거를 확인한 답변입니다.', body.content === '판례 검색 요청');
     if (path === '/api/chat-rooms/ndjson') state.messages = [{ sender: 'USER', content: body.content }, answer];
     else state.messages.push({ sender: 'USER', content: body.content }, answer);
     await pm.state.set('molelaw-fixture', state);
