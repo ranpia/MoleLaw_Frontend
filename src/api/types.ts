@@ -13,3 +13,4 @@ export interface EvidenceDetail {
   evidence: Evidence; content: string;
   caseInfo?: { caseNumber?: string; courtName?: string; decisionDate?: string; issues?: string; summary?: string; referenceLaws?: string; referenceCases?: string } | null;
 }
+export interface EvidenceUpdate { roomId: number | null; state: "PREVIEW" | "SAVED"; items: Evidence[] }

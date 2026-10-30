@@ -9,10 +9,10 @@ export default function SideBar() {
   const [editing, setEditing] = useState<number | null>(null);
   const [title, setTitle] = useState("");
   const [renaming, setRenaming] = useState(false);
-  const { chatRooms, getChatRoom, getChatRoomMessage, deleteChatroom, renameChatroom, newChat, selectedChatRoomID, listLoading, roomLoading, hasMore, error } = useDataStore();
+  const { chatRooms, getChatRoom, getChatRoomMessage, deleteChatroom, renameChatroom, newChat, selectedChatRoomID, listLoading, roomLoading, hasMore, error, deletingEvidenceId } = useDataStore();
   const { loading, clearError } = useQuestionStore();
   const { user, logout, isLoading } = useAuthStore();
-  const busy = loading || roomLoading || deleting !== null || renaming;
+  const busy = loading || roomLoading || deleting !== null || renaming || deletingEvidenceId !== null;
   useEffect(() => { void getChatRoom(); }, [getChatRoom]);
   const start = () => { if (busy) return; newChat(); clearError(); setExpanded(false); };
   const remove = async (id: number) => {

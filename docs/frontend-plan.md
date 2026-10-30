@@ -1,6 +1,6 @@
 # 프론트 작업 현황과 계획
 
-문서 정리일: 2026-10-27 (Asia/Seoul)
+문서 정리일: 2026-10-30 (Asia/Seoul)
 
 ## 현재 상태
 
@@ -120,3 +120,27 @@ stream 병합 후 lint, 프로덕션 build(configLoader runner), verify:stream �
 승인 카드에 기본 미선택 체크박스를 추가하고 현재 방의 법령만 표시한다. 승인 시 선택 목록을 전송하고 중복은 제거한다. 일반 질문·거절에는 전송하지 않으며 방/동의 턴마다 선택 상태를 새로 만든다. 스토어에서도 현재 방의 법령과 명시적 동의를 검사한다.
 
 검증: lint/build/verify:stream 통과. 실제 API 28개 통과(동의 없는 선택·잘못된 UUID의 시작 전 400 포함), 임시 계정 삭제 204 확인. Postman simulation + Chrome 6개 검사 통과: 자동 선택 없음, 판례 항목 제외, 거절 시 호출 없음, 법령 6개 승인 전송, 다음 질문에서 동의·선택 미승계, 미선택 [] 승인과 모바일 너비·JS 예외 확인. backend 멤버의 후속 NDJSON 요청 이벤트 확인. 외부 판례 검색·AI 재호출은 하지 않았으므로 실제 검색 결과 품질·판례 수집 성공은 이번 검증 범위 밖이다. 산출물: `.artifacts.local/browser-cases-1793086791354/`. 실험 브랜치와 5173 컨테이너에 반영한다.
+
+## 2026-10-27 최신 Swagger 반영 중 사용자 요청으로 일시 중지
+
+실시간 evidence PREVIEW/SAVED 스냅샷, 저장 근거 DELETE, ANSWER_REPAIR 최종 답변 반영을 수정 중이다. 변경분은 실험 브랜치 작업 트리에만 저장했으며 커밋·푸시·5173 컨테이너 반영은 하지 않았다. 실행 중이던 모의 검증 프로세스는 종료했다. lint/build/스트림 검사, 실제 API 29개, 모의 브라우저 evidence 검사 7개가 통과했지만 최종 검토·배포는 남았다. 재개 시 [최신 중간 저장](checkpoint.md)을 먼저 읽는다.
+
+## 백엔드 dev 대조·연동 완료 — 2026-10-30
+
+사용자 요청으로 중지 작업을 재개했다. 백엔드 원격 dev HEAD `b0b37d87037ff3b9b0a5c6a01834c011358200e0`의 컨트롤러·요청/응답 DTO·채팅 문서를 GitHub에서 읽고 실행 서버 Swagger와 대조했다. DTO Java 이름은 변경되었지만 JSON 경로와 필드는 호환된다. 백엔드 checkout/fetch/pull/빌드/컨테이너 변경은 하지 않았다.
+
+- [실시간 답변 계약](https://github.com/ranpia/MoleLaw_backend/blob/b0b37d87037ff3b9b0a5c6a01834c011358200e0/docs/chat/initial-answer-stream.md): PREVIEW/SAVED 스냅샷 교체, 오류 시 저장 목록 복원, 최종 response.answer 반영.
+- [근거 계약](https://github.com/ranpia/MoleLaw_backend/blob/b0b37d87037ff3b9b0a5c6a01834c011358200e0/docs/chat/room-evidence.md): 미리보기에서 제외한 ID는 완료 후 실제 저장된 경우에만 DELETE하고 목록을 재조회한다. 미리보기 중에는 삭제 요청을 보내지 않으며 실패한 상담의 제외 예약도 실행하지 않는다.
+
+중간 저장한 실시간 근거·삭제·교정 답변 처리를 마무리했다. PREVIEW 제외 예약을 완료 후 저장 목록과 대조해 삭제하고, 중복 POST 없이 SAVED 후 연결 종료 시 저장된 메시지·근거를 GET으로 복구하도록 보완했다. 삭제 실패는 목록을 보존하고 별도 오류를 표시한다.
+
+검증 결과:
+
+- lint, build(configLoader runner), verify:stream 통과.
+- 실행 서버 API 29개 검사 통과, 임시 계정 삭제 204 확인.
+- Postman simulation + Chrome evidence 7개 검사 통과: 미리보기 중복·빈 목록·본문 차단, 저장 후 제외 예약 실행, 오류 복원, 교정 최종 답변, 저장 근거 삭제·실패·새로고침 유지. 산출물 `.artifacts.local/browser-evidence-1793329459501/`.
+- 별도 evidence-recovery 3개 검사 통과: 최초·후속 SAVED 뒤 연결 종료 시 실제 HTTP GET으로 기록 복원, POST 재전송 없음. 산출물 `.artifacts.local/browser-evidence-recovery-1793329681256/`.
+- Docker 5173 실제 인증 브라우저 검사 10개 통과: 가입·CSRF·프로필, 새로고침 유지, Access 쿠키 제거 후 단일 Refresh, 닉네임 변경, 로그아웃·재로그인, 모바일·JS 오류 없음, 임시 계정 삭제. 산출물 `.artifacts.local/browser-live-1793329565948/`.
+- 실제 최초·후속 NDJSON 브라우저 검사 11개 통과: 스트림 표시·저장·새로고침 복원, 중복 전송 방지, 실제 저장 근거 DELETE 204와 재조회·본문404, 기존 대화 유지, 모바일·JS 오류 없음 및 임시 계정 삭제. 외부 모델은 이 최초·후속 상담 한 쌍만 실행했다. 산출물 `.artifacts.local/browser-ndjson-1793329565954/`.
+
+실험 브랜치를 유지하고 프론트 Docker를 5173에 재빌드·실행했다. 프론트·프록시 CSRF HTTP 200과 컨테이너 소스 35개 파일 일치를 확인했다. 후속 인용 교정·연결 단절은 모의 서버로 검증했으며 실제 서버에 장애를 주입하지 않았다. 외부 판례 검색 성공과 OAuth 전체 흐름은 이번 검증 범위가 아니다.

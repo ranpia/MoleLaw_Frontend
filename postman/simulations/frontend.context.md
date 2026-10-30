@@ -1,6 +1,6 @@
 # MoleLaw frontend simulation context
 
-Updated: 2026-10-27. Uses the local backend fixture derived from the running server OpenAPI; no published owner mock was pulled (CLI signed out).
+Updated: 2026-10-30. Uses the local backend fixture derived from the running server OpenAPI; no published owner mock was pulled (CLI signed out).
 
 ## Purpose
 
@@ -22,6 +22,7 @@ Run the frontend against the backend member in `frontend.sim.yaml`. Account/titl
 ## Observations
 
 <!-- begin:observations -->
+- 2026-10-30: evidence and evidence-recovery modes passed. backend served deferred post-save exclusions, explicit deletes, refresh/body 404, and GET recovery after SAVED/transport loss without POST replay. No member was silent. Provider assumptions and their evidence now live in frontend.context.yaml; this Markdown retains earlier run history.
 - 2026-10-27: cases browser check passed. backend served six-law selection, empty-list approval and ordinary follow-up NDJSON; declining sent no request, consent/selection did not carry over. No member was silent. This proves request/UI behavior, not real external case retrieval.
 - 2026-10-26: bubble UI rerun passed; backend received one first-NDJSON request for a double click on the selected bubble, plus recommendation, follow-up and fallback requests. No member was silent.
 - 2026-10-26: suggestions browser check passed; backend served explicit recommendation calls, first/follow-up NDJSON and the controlled recommendation 500. Late recommendation cancellation and raw-question fallback passed. No member was silent.

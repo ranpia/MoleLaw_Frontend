@@ -18,6 +18,7 @@ export function createDraftWriter(onText: (text: string) => void, signal: AbortS
   return {
     append(delta: string) { if (signal.aborted) return; queue += delta; if (queue && timer === undefined) timer = setTimeout(tick, 30); },
     drain: () => timer === undefined ? Promise.resolve() : new Promise<void>((resolve) => { finished = resolve; }),
+    reset() { stop(); displayed = ""; onText(""); },
     dispose() { stop(); signal.removeEventListener("abort", stop); },
   };
 }

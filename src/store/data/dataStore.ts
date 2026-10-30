@@ -8,7 +8,7 @@ const PAGE_SIZE = 20;
 let selectionVersion = 0;
 export const useDataStore = create<DataStore>((set, get) => ({
   chatRooms: [], selectedChatRoomID: null, listLoading: false, roomLoading: false,
-  error: null, hasMore: false, page: 0, evidence: [], evidenceError: null,
+  error: null, hasMore: false, page: 0, evidence: [], evidenceError: null, deletingEvidenceId: null,
   setSelectedRoomID: (id) => { selectionVersion += 1; set({ selectedChatRoomID: id, evidence: [], evidenceError: null }); },
   newChat: () => {
     selectionVersion += 1;
@@ -50,6 +50,23 @@ export const useDataStore = create<DataStore>((set, get) => ({
       if (version === selectionVersion && session === getSessionVersion() && get().selectedChatRoomID === id) set({ evidence: data, evidenceError: null });
     } catch (error) { if (version === selectionVersion && session === getSessionVersion()) set({ evidenceError: errorMessage(error, "근거 목록을 불러오지 못했습니다.") }); }
   },
+  removeEvidence: async (id) => {
+    const roomId = get().selectedChatRoomID;
+    if (roomId === null || get().deletingEvidenceId || get().roomLoading) return false;
+    const version = ++selectionVersion;
+    const session = getSessionVersion();
+    set({ deletingEvidenceId: id, evidenceError: null });
+    try {
+      await chatApi.removeEvidence(roomId, id);
+      if (session !== getSessionVersion() || version !== selectionVersion) return false;
+      set({ evidence: get().evidence.filter(item => item.id !== id) });
+      await get().loadEvidence(roomId);
+      return true;
+    } catch (error) {
+      if (session === getSessionVersion() && version === selectionVersion) set({ evidenceError: errorMessage(error, "근거를 삭제하지 못했습니다.") });
+      return false;
+    } finally { if (session === getSessionVersion()) set({ deletingEvidenceId: null }); }
+  },
   renameChatroom: async (id, title) => {
     const trimmed = title.trim();
     if (!trimmed || [...trimmed].length > 255) {
@@ -78,5 +95,5 @@ export const useDataStore = create<DataStore>((set, get) => ({
 }));
 window.addEventListener("molelaw:session-cleared", () => {
   useDataStore.getState().newChat();
-  useDataStore.setState({ chatRooms: [], hasMore: false, page: 0, listLoading: false });
+  useDataStore.setState({ chatRooms: [], hasMore: false, page: 0, listLoading: false, deletingEvidenceId: null });
 });

@@ -116,6 +116,8 @@ summary { cursor: pointer; }
 .evidence-list { list-style: none; padding: 0; margin: 20px 0; }
 .evidence-list button { display: flex; align-items: flex-start; gap: 8px; width: 100%; text-align: left; border: 1px solid #e5d9d2; background: #fff; margin-bottom: 8px; font-size: 13px; line-height: 1.6; }
 .evidence-list button.active { border-color: #760c0c; background: #fff1e8; }
+.evidence-list .evidence-remove { width: auto; margin: -2px 0 12px auto; padding: 4px 8px; font-size: 11px; }
+.evidence-delete-confirm { padding: 8px; margin-bottom: 12px; border: 1px solid #dcc6ba; border-radius: 8px; font-size: 12px; }
 .evidence-list small { display: block; color: #776963; font-size: 11px; }
 .evidence-number { flex-shrink: 0; color: #760c0c; font-weight: 700; }
 .evidence-detail { overflow-wrap: anywhere; }

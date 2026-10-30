@@ -142,3 +142,11 @@ postman request http://localhost:8080/api/auth/csrf --no-report-events --script-
 판례 검색 승인 카드에서 같은 상담방의 법령을 선택할 수 있다. 기본 선택은 없고 개수 제한도 없다. 선택하지 않으면 기존 질문만으로 검색한다. 선택한 법령은 이번 승인에만 사용한다.
 
 Postman simulation과 5174 프론트를 새로 실행한 뒤 `node scripts/browser-check.mjs cases`로 법령 다중 선택·미선택 승인·동의 미승계를 검사한다. 실제 서버의 입력 검증은 `npm.cmd run verify:api`에 포함되며 외부 판례 검색은 호출하지 않는다.
+
+## 실시간 근거와 삭제
+
+스트림 중 PREVIEW 근거는 저장 전 미리보기다. 본문 조회는 저장 후에만 가능하다. 미리보기에서 제외한 근거가 상담 완료 후 실제 저장 목록에 남으면 그때 DELETE하고 목록을 재조회한다. 이미 진행 중인 답변에는 소급 적용하지 않는다. 상담 실패 시 제외 예약을 버린다.
+
+저장된 근거는 생성이 끝난 뒤 삭제 확인을 거쳐 제거하며 기존 대화는 유지한다. SAVED를 받은 뒤 completed 전에 연결이 끊기면 POST를 재전송하지 않고 저장된 메시지·근거를 GET으로 복구한다.
+
+모의 검사: simulation·5174 프론트를 각각 새로 실행한 상태에서 `node scripts/browser-check.mjs evidence` 또는 `node scripts/browser-check.mjs evidence-recovery`를 실행한다. 실제 서버의 `node scripts/browser-check.mjs ndjson`은 AI 상담을 한 번씩 실행하고 저장 근거 삭제까지 확인한 뒤 임시 계정을 삭제한다.

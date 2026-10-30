@@ -1,9 +1,11 @@
 import { api, getCsrf, getSessionVersion } from "./client";
 import { API_BASE_URL } from "./config";
-import type { CreatedRoom, Message } from "./types";
+import type { CreatedRoom, Message, EvidenceUpdate } from "./types";
 
 export interface AnswerEvent {
-  type: "progress" | "info" | "answer_delta" | "completed" | "error" | "heartbeat";
+  type: "progress" | "info" | "evidence" | "answer_delta" | "completed" | "error" | "heartbeat";
+  stage?: string; evidence?: EvidenceUpdate;
+  response?: { answer: string; info?: string };
   message?: string; info?: string; delta?: string; code?: string;
   room?: CreatedRoom;
   messageResult?: Message;
@@ -31,6 +33,15 @@ async function streamAnswer(path: string, body: object, onEvent: (event: AnswerE
   const consume = (line: string) => {
     if (!line.trim()) return;
     const event = JSON.parse(line) as AnswerEvent;
+    if (event.type === "evidence") {
+      const update = event.evidence;
+      if (!update || !["PREVIEW", "SAVED"].includes(update.state) || !Array.isArray(update.items) ||
+        (update.roomId != null && !Number.isSafeInteger(update.roomId)) || (update.state === "SAVED" && update.roomId == null) ||
+        update.items.some(item => !item || typeof item.id !== "string" || typeof item.kind !== "string" || typeof item.title !== "string" || typeof item.sourceUrl !== "string")) {
+        throw new Error("실시간 근거 목록의 형식을 확인하지 못했습니다.");
+      }
+      event.evidence = { ...update, roomId: update.roomId ?? null, items: [...new Map(update.items.map(item => [item.id, item])).values()] };
+    }
     if (event.type === "error") throw new Error(event.message || "답변을 생성하지 못했습니다.");
     onEvent(event);
     return event.type === "completed" ? event : undefined;
@@ -59,17 +70,21 @@ async function streamAnswer(path: string, body: object, onEvent: (event: AnswerE
 }
 
 export async function streamFirstAnswer(content: string, onEvent: (event: AnswerEvent) => void, signal: AbortSignal): Promise<CreatedRoom> {
-  const { room } = await streamAnswer("/chat-rooms/ndjson", { content }, onEvent, signal);
+  const { room, response } = await streamAnswer("/chat-rooms/ndjson", { content }, onEvent, signal);
   if (!room || !Number.isSafeInteger(room.id) || !Array.isArray(room.messages)) throw new Error("저장된 상담 결과를 확인하지 못했습니다. 상담 기록을 확인해 주세요.");
+  if (typeof response?.answer === "string") {
+    const botIndex = room.messages.findIndex(message => message.sender === "BOT");
+    if (botIndex >= 0) room.messages[botIndex] = { ...room.messages[botIndex], content: response.answer };
+  }
   return room;
 }
 
 export async function streamFollowUp(roomId: number, content: string, allowCaseSearch: boolean, onEvent: (event: AnswerEvent) => void, signal: AbortSignal, caseSearchLawEvidenceIds?: string[]): Promise<Message> {
   if (!allowCaseSearch && caseSearchLawEvidenceIds?.length) throw new Error("법령 선택은 판례 검색 승인 시에만 보낼 수 있습니다.");
-  const { messageResult } = await streamAnswer(`/chat-rooms/${roomId}/messages/ndjson`, {
+  const { messageResult, response } = await streamAnswer(`/chat-rooms/${roomId}/messages/ndjson`, {
     content, allowCaseSearch,
     ...(allowCaseSearch && caseSearchLawEvidenceIds !== undefined ? { caseSearchLawEvidenceIds: [...new Set(caseSearchLawEvidenceIds)] } : {}),
   }, onEvent, signal);
   if (!messageResult || messageResult.sender !== "BOT" || typeof messageResult.content !== "string") throw new Error("저장된 후속 답변을 확인하지 못했습니다. 상담 기록을 확인해 주세요.");
-  return messageResult;
+  return typeof response?.answer === "string" ? { ...messageResult, content: response.answer } : messageResult;
 }

@@ -6,7 +6,7 @@ import { randomUUID } from 'node:crypto';
 
 // No browser package needed: isolated headless Chrome via the DevTools protocol.
 const mode = process.argv[2] || 'live';
-const origin = ['simulation', 'account', 'suggestions', 'cases'].includes(mode) ? 'http://localhost:5174' : 'http://localhost:5173';
+const origin = ['simulation', 'account', 'suggestions', 'cases', 'evidence', 'evidence-recovery'].includes(mode) ? 'http://localhost:5174' : 'http://localhost:5173';
 const directory = resolve('.artifacts.local', `browser-${mode}-${Date.now()}`);
 await mkdir(directory, { recursive: true });
 const chrome = spawn(process.env.CHROME_PATH || 'C:/Program Files/Google/Chrome/Application/chrome.exe', [
@@ -68,7 +68,82 @@ try {
   await send('Network.enable');
   await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'no-preference' }] });
   await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 1000, deviceScaleFactor: 1, mobile: false });
-  if (mode === 'cases') {
+  if (mode === 'evidence-recovery') {
+    await until(() => exists('.welcome'), 'new conversation');
+    for (let turn = 0; turn < 2; turn++) {
+      await value('#question', '저장 후 연결 종료');
+      await evaluate("document.querySelector('.composer').requestSubmit()");
+      await until(() => evaluate(`document.querySelectorAll('.bot-message').length === ${turn + 1} && !document.querySelector('#question').disabled`), 'committed conversation recovered');
+      assert.equal(await evaluate("document.querySelector('.bot-message').textContent.includes('교정된 최종 답변')"), true);
+      assert.equal(await evaluate("document.querySelectorAll('.evidence-list > li').length"), 8);
+      const posts = await (await fetch('http://127.0.0.1:4900/backend/__fixture/requests')).json();
+      assert.equal(posts.length, turn + 1);
+    }
+    pass('first and follow-up SAVED before disconnect recover persisted messages/evidence via GET without POST replay');
+  } else if (mode === 'evidence') {
+    await until(() => exists('.welcome'), 'new conversation');
+    const start = async text => { await value('#question', text); await evaluate("document.querySelector('.composer').requestSubmit()"); };
+    const idle = () => until(() => evaluate("!document.querySelector('#question').disabled"), 'turn complete');
+    const count = () => evaluate("document.querySelectorAll('.evidence-list > li').length");
+    await start('실시간 근거 검증');
+    await until(() => exists('.evidence-remove'), 'initial evidence preview');
+    assert.equal(await count(), 1);
+    await evaluate("document.querySelector('.evidence-list button').click()");
+    await pause(100);
+    assert.equal(requests.some(r => /\/evidence\/[^/]+$/.test(r.path) && r.method === 'GET'), false);
+    await clickText('미리보기에서 제외');
+    assert.equal(await count(), 0);
+    assert.equal(requests.some(r => r.method === 'DELETE'), false);
+    await until(() => evaluate("document.querySelectorAll('.evidence-list > li').length === 7"), 'saved evidence with excluded preview hidden');
+    assert.equal(await evaluate("[...document.querySelectorAll('.evidence-remove')].every(b=>b.disabled)"), true);
+    await idle();
+    assert.equal(requests.filter(r => r.method === 'DELETE' && r.path.endsWith('000088')).length, 1);
+    assert.equal(await count(), 7);
+    assert.equal(await evaluate("document.querySelector('.bot-message').textContent.includes('교정된 최종 답변')"), true);
+    assert.equal(await evaluate("document.querySelector('.bot-message').textContent.includes('교정 전')"), false);
+    pass('initial preview deduplicated and hidden; exclusion deletes only after completed save and refreshes list');
+    await start('실시간 근거 검증');
+    await until(async () => await count() === 1, 'follow-up preview replaces saved list');
+    await idle();
+    assert.equal(await evaluate("[...document.querySelectorAll('.bot-message')].at(-1).textContent.includes('교정된 최종 답변')"), true);
+    pass('follow-up snapshot replaces old list; repaired completed.response.answer replaces provisional answer');
+    const storedCount = await count();
+    const deletesBeforeFailure = requests.filter(r => r.method === 'DELETE').length;
+    for (const text of ['근거 스트림 오류', '근거 스트림 종료']) {
+      await start(text);
+      await until(async () => await count() === 1, 'failure preview');
+      if (text === '근거 스트림 오류') await clickText('미리보기에서 제외');
+      await until(async () => await count() === 0, 'empty preview snapshot');
+      await idle();
+      assert.equal(await count(), storedCount);
+      assert.equal(await evaluate("document.querySelector('#question').value"), text);
+      assert.equal(requests.filter(r => r.method === 'DELETE').length, deletesBeforeFailure);
+    }
+    pass('error event and interrupted connection discard PREVIEW and restore saved evidence/draft');
+    const firstTitle = await evaluate("document.querySelector('.evidence-list > li span:nth-child(2)').textContent");
+    await evaluate("document.querySelector('.evidence-remove').click()");
+    await clickText('취소');
+    assert.equal(requests.filter(r => r.method === 'DELETE').length, deletesBeforeFailure);
+    await evaluate("document.querySelector('.evidence-remove').click()");
+    await clickText('삭제 확인');
+    await until(() => evaluate("document.querySelector('#question').disabled"), 'deletion blocks new request');
+    await until(async () => await count() === storedCount - 1, 'deleted evidence removed');
+    await idle();
+    assert.ok(requests.some(r => r.method === 'DELETE' && r.csrfPresent));
+    assert.equal(await evaluate("fetch('/api/chat-rooms/42/evidence/00000000-0000-0000-0000-000000000001').then(r=>r.status)"), 404);
+    assert.ok(firstTitle);
+    await send('Page.reload');
+    await until(() => exists('.room-select'), 'room reload');
+    await evaluate("document.querySelector('.room-select').click()");
+    await until(async () => await count() === storedCount - 1, 'deletion persists after reload');
+    pass('saved delete confirmation/cancel, CSRF DELETE 204, list refresh, body 404 and reload persistence');
+    await evaluate("document.querySelector('[id=\"evidence-00000000-0000-0000-0000-000000000006\"] .evidence-remove').click()");
+    await clickText('삭제 확인');
+    await until(() => exists('.evidence-panel [role=alert]'), 'delete failure');
+    assert.equal(await count(), storedCount - 1);
+    await idle();
+    pass('delete server error retains saved evidence and re-enables composer');
+  } else if (mode === 'cases') {
     await until(() => exists('.room-select'), 'room list');
     await evaluate("document.querySelector('.room-select').click()");
     await until(() => evaluate("document.querySelectorAll('.case-search-laws input').length === 6"), 'law choices');
@@ -259,6 +334,17 @@ try {
       await evaluate("document.querySelector('.room-select').click()");
       await until(() => evaluate("document.querySelectorAll('.bot-message').length === 2"), 'persisted follow-up');
       pass('real follow-up NDJSON answer completed and restored from history');
+      await until(() => exists('.evidence-remove:not(:disabled)'), 'saved evidence actions');
+      const savedEvidenceCount = await evaluate("document.querySelectorAll('.evidence-list > li').length");
+      const removedEvidenceId = await evaluate("document.querySelector('.evidence-list > li').id.slice('evidence-'.length)");
+      const savedRoomId = await evaluate("(async()=> (await (await fetch('/api/chat-rooms')).json())[0].id)()");
+      await evaluate("document.querySelector('.evidence-remove').click()");
+      await clickText('삭제 확인');
+      await until(() => evaluate(`document.querySelectorAll('.evidence-list > li').length === ${savedEvidenceCount - 1} && !document.querySelector('#question').disabled`), 'real evidence deletion');
+      assert.equal(await evaluate(`fetch('/api/chat-rooms/${savedRoomId}/evidence/${removedEvidenceId}').then(r=>r.status)`), 404);
+      assert.equal(await evaluate("document.querySelectorAll('.bot-message').length"), 2);
+      assert.ok(responses.some(r => r.path.endsWith('/evidence/' + removedEvidenceId) && r.status === 204));
+      pass('real saved evidence DELETE 204, refreshed list, removed body 404 and conversation retained');
     } else {
     await send('Page.reload');
     await until(() => exists('.welcome'), 'session after reload');

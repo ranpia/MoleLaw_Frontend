@@ -1,0 +1,37 @@
+﻿purpose:
+  stands_in_for: MoleLaw backend HTTP API
+  unblocks: Frontend evidence snapshots, deferred exclusions, deletion and committed-stream recovery verification.
+assumptions:
+  - id: evidence-snapshots-are-complete-lists
+    status: supported
+    claim: The documented evidence event replaces the full list; PREVIEW is temporary and SAVED identifies committed room evidence.
+    reason: Backend dev contract defines this lifecycle; simulation verifies caller replacement and rollback, not provider internals.
+    verification: On 2026-10-30 read fingerprint backend-dev-20261030 and exercised duplicate, empty and saved snapshots in browser evidence mode.
+    source: docs/frontend-plan.md; src/api/stream.ts; scripts/browser-check.mjs; https://github.com/ranpia/MoleLaw_backend/blob/b0b37d87037ff3b9b0a5c6a01834c011358200e0/docs/chat/initial-answer-stream.md
+    updated_at: '2026-10-30'
+  - id: saved-evidence-removal-hides-body-and-preserves-messages
+    status: supported
+    claim: Removing one saved evidence item from a disposable room returns 204, removes it from the list, makes its body GET return 404, and preserves existing messages.
+    reason: Observed against localhost backend through the rebuilt frontend container; scope is the single tested disposable room.
+    verification: On 2026-10-30 real NDJSON browser check completed first/follow-up turns, deleted a saved evidence item, verified 204/list/404 and unchanged BOT count, then deleted the account.
+    source: scripts/browser-check.mjs; .artifacts.local/browser-ndjson-1793329565954/summary.json
+    updated_at: '2026-10-30'
+  - id: preview-exclusion-is-deferred-until-success
+    status: supported
+    claim: Backend dev frontend guidance requires a hidden PREVIEW item to be deleted only after a completed successful turn if its ID is in the saved list.
+    reason: The published dev document states the rule; simulation demonstrates caller deferral and no deletion on failed turns.
+    verification: On 2026-10-30 evidence browser mode sent no DELETE during preview, sent DELETE after success, and preserved saved evidence for error/disconnect before save.
+    source: src/store/chat/questionStore.ts; scripts/browser-check.mjs; https://github.com/ranpia/MoleLaw_backend/blob/b0b37d87037ff3b9b0a5c6a01834c011358200e0/docs/chat/room-evidence.md
+    updated_at: '2026-10-30'
+  - id: commit-survives-transport-loss
+    status: supported
+    claim: The documented SAVED event denotes committed data which is not undone by connection loss.
+    reason: Supported by backend dev documentation; caller recovery was tested with the stand-in, without injecting a real backend network failure.
+    verification: On 2026-10-30 evidence-recovery mode recovered first/follow-up persisted messages and evidence through GET with one POST per turn. Actual transport-loss provider behavior remains unexercised.
+    source: src/store/chat/questionStore.ts; scripts/browser-check.mjs; .artifacts.local/browser-evidence-recovery-1793329681256/summary.json
+    updated_at: '2026-10-30'
+fingerprints:
+  - id: backend-dev-20261030
+    date: '2026-10-30'
+    commit: b0b37d87037ff3b9b0a5c6a01834c011358200e0
+    cli: Postman 1.74.0

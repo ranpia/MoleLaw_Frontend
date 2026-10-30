@@ -17,6 +17,7 @@ export const chatApi = {
   remove: async (id: number) => { await api.delete(`/chat-rooms/${id}`); },
   rename: async (id: number, title: string) => { await api.patch(`/chat-rooms/${id}/title`, { title }); },
   evidence: async (id: number) => (await api.get<Evidence[]>(`/chat-rooms/${id}/evidence`)).data,
+  removeEvidence: async (roomId: number, id: string) => { await api.delete(`/chat-rooms/${roomId}/evidence/${id}`); },
   evidenceDetail: async (roomId: number, id: string, signal: AbortSignal) =>
     (await api.get<EvidenceDetail>(`/chat-rooms/${roomId}/evidence/${id}`, { signal })).data,
 };

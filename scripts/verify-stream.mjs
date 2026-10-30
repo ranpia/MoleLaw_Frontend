@@ -43,6 +43,19 @@ try {
   assert.equal(requests[0].url, '/api/chat-rooms/7/messages/ndjson');
   assert.deepEqual(JSON.parse(requests[0].body), { content: '추가 질문', allowCaseSearch: false });
   console.log('PASS follow-up completion and explicit consent payload');
+  const evidence = { id: '00000000-0000-0000-0000-000000000001', kind: 'LAW_CHUNK', title: '법령', sourceUrl: 'https://www.law.go.kr', sourceId: '1' };
+  const snapshots = [];
+  response([{ type: 'evidence', evidence: { roomId: 7, state: 'PREVIEW', items: [evidence, evidence] } },
+    { type: 'evidence', evidence: { roomId: 7, state: 'PREVIEW', items: [] } },
+    { type: 'progress', stage: 'ANSWER_REPAIR' },
+    { type: 'evidence', evidence: { roomId: 7, state: 'SAVED', items: [evidence] } },
+    { type: 'completed', response: { answer: '교정된 답변' }, messageResult }]);
+  const repaired = await streamFollowUp(7, '질문', false, e => snapshots.push(e), new AbortController().signal);
+  assert.equal(repaired.content, '교정된 답변');
+  assert.deepEqual(snapshots.filter(e => e.type === 'evidence').map(e => e.evidence.items.length), [1, 0, 1]);
+  response([{ type: 'evidence', evidence: { roomId: null, state: 'SAVED', items: [] } }]);
+  await assert.rejects(streamFirstAnswer('질문', () => {}, new AbortController().signal), /근거 목록/);
+  console.log('PASS evidence snapshots deduplicate, replace with empty list, saved validation and repaired final answer');
   const lawIds = Array.from({ length: 6 }, (_, i) => `00000000-0000-0000-0000-${String(i + 1).padStart(12, '0')}`);
   response([{ type: 'completed', messageResult }]);
   await streamFollowUp(7, '승인', true, () => {}, new AbortController().signal, [...lawIds, lawIds[0]]);
@@ -72,11 +85,15 @@ try {
   await writer.drain();
   assert.ok(updates.length > 1);
   assert.equal(updates.at(-1), '한글🙂가나다라마바사');
+  writer.append('버릴 초안'); writer.reset(); await writer.drain();
+  assert.equal(updates.at(-1), '');
+  writer.append('교정 초안'); await writer.drain();
+  assert.equal(updates.at(-1), '교정 초안');
   writer.append('취소될 글자');
   const drained = writer.drain();
   controller.abort();
   await drained;
-  assert.equal(updates.at(-1), '한글🙂가나다라마바사');
+  assert.equal(updates.at(-1), '교정 초안');
   writer.dispose();
   console.log('PASS paced draft output, Unicode and cancellation');
 } finally { globalThis.fetch = originalFetch; }

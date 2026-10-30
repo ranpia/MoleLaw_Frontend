@@ -24,7 +24,7 @@
 
 - 원격: https://github.com/ranpia/MoleLaw_backend.git
 - 사용자가 최신 기준으로 지정한 브랜치: `dev`.
-- 마지막 원격 확인: 2026-10-23, 커밋 `0eedbb12481b3713f47d25a37ac669bbc5d0515c`.
+- 마지막 원격 확인: 2026-10-30, dev 커밋 `b0b37d87037ff3b9b0a5c6a01834c011358200e0`. 원격 소스와 실행 서버 Swagger를 읽기 전용으로 대조했다.
 - 로컬 참조 경로: `C:/Users/KOSA/IdeaProjects/MoleLaw_backend`.
 - 로컬 백엔드와 원격 `dev`는 서로 다르다. 로컬에서 발견한 기능을 원격 `dev`의 계약으로 간주하지 않는다.
 - 사용자가 실행한 실제 서버 `http://localhost:8080`의 `/v3/api-docs`를 확인했다. 이전 원격 커밋보다 기능이 추가되어 있으므로 현재 구현은 이 실행 서버 계약을 기준으로 한다.
@@ -44,6 +44,6 @@
 - 제공 스크립트: `npm run build`, `npm run lint`, `npm run dev`, `npm run preview`.
 - Node v24.22.1, npm 11.19.1 설치 완료. 이 세션 PATH에는 미반영이므로 명령 실행 시 `C:/Program Files/nodejs`를 PATH에 추가했다. 사용자가 npm ci를 완료했다.
 - 2026-10-24 구조 정리 이후 `npm.cmd run build -- --configLoader runner`, lint, `npm.cmd run verify:stream` 통과. 기본 config loader와 개발 사전 번들링은 이전 제한 환경에서 실패한 기록이 있다.
-- 실제 API 19개 검사 이력과 최초·후속 NDJSON 실제 브라우저 검사 통과. 3000 포트에서 로그아웃·재로그인·쿠키 누락 갱신·프로필 검증도 통과했다. 2026-10-26에는 5173 Docker 기동과 사용자 수동 인증·후속 NDJSON 정상 동작 확인을 완료했다. 기존 Postman 모의 fixture의 NDJSON 전환은 남아 있다. 상세 결과는 `docs/frontend-plan.md` 참조.
+- 실제 API 19개 검사 이력과 최초·후속 NDJSON 실제 브라우저 검사 통과. 3000 포트에서 로그아웃·재로그인·쿠키 누락 갱신·프로필 검증도 통과했다. 2026-10-26에는 5173 Docker 기동과 사용자 수동 인증·후속 NDJSON 정상 동작 확인을 완료했다. 2026-10-30에는 실시간 evidence·근거 삭제와 실제 5173 최초·후속 NDJSON/인증 재검증을 완료했다. Postman 모의 검증은 evidence/evidence-recovery 모드를 사용한다. 상세 결과는 `docs/frontend-plan.md` 참조.
 - 변경 범위에 맞춰 검증하고, 소스 대조·모의 검증·실제 서버 연동 결과를 구분해 보고한다.
 - API 작업 시 세션에서 제공되는 Postman 스킬 지침을 따른다. 소스 비교만을 위해 불필요한 워크스페이스 생성이나 게시를 하지 않는다.
